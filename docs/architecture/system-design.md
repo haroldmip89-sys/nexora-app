@@ -38,7 +38,8 @@ Todas viven en Neon salvo indicación. Los nombres son conceptuales.
 | Usuario (`user`) | Identidad interna vinculada a Clerk | `clerkUserId` (único), rol, nombre visible, email, fechas | 1 usuario : N proyectos (si cliente); 1 : N propuestas (si desarrollador); 1 : 0..1 perfil de desarrollador |
 | Rol | Atributo del usuario, no entidad aparte | `client` \| `developer` \| `admin` | Un solo rol por usuario (D1) |
 | Perfil del desarrollador (`developerProfile`) | Información pública/básica del desarrollador | titular, bio, tecnologías, enlace externo opcional | 1:1 con usuario (rol `developer`) |
-| Proyecto (`project`) | Necesidad publicada por un cliente | título, categoría, descripción, presupuesto mín/máx USD, plazo en semanas, tecnologías, estado | N:1 cliente (usuario); 1:N propuestas; 0..1 selección; 0..N intentos de pago |
+| Proyecto (`project`) | Necesidad publicada por un cliente | título, categoría, descripción, presupuesto mín/máx USD, plazo en semanas, tecnologías (tags del catálogo), estado | N:1 cliente (usuario); 1:N propuestas; 0..1 selección; 0..N intentos de pago; N:M tecnologías |
+| Tecnología (`technology`) | Tag del catálogo cerrado y compartido (lenguajes, frameworks, bases de datos, etc., más «Otros») | `slug` (único), nombre (único sin distinguir mayúsculas), orden | N:M con proyecto (tabla puente `project_technologies`) |
 | Propuesta (`proposal`) | Oferta de un desarrollador a un proyecto | precio USD, plazo en semanas, descripción de la solución, estado | N:1 proyecto; N:1 desarrollador (usuario); como máximo una propuesta por desarrollador y proyecto (D5) |
 | Selección de propuesta (`proposalSelection`) | Hecho inmutable "este proyecto eligió esta propuesta" | proyecto, propuesta, cliente que seleccionó, fecha | 1:1 con proyecto y 1:1 con propuesta; como máximo un ganador por proyecto |
 | Intento de pago (`paymentAttempt`) | Un intento de pago en Stripe Checkout (test) | proyecto, propuesta ganadora, cliente, importe USD y moneda copiados de la propuesta en el servidor, id de Checkout Session, id de PaymentIntent (cuando exista), estado, `livemode=false` | N:1 proyecto; N:1 propuesta; como máximo un intento `pending` o `completed_test` por proyecto |
@@ -112,14 +113,21 @@ Dependencias permitidas (sin ciclos):
 
 | Módulo | Puede depender de |
 |---|---|
-| `auth` | (identidad; sin dependencias de dominio) |
-| `users` | `auth` |
+| `auth` | `users` (resuelve el usuario interno; spec 004, D-A) |
+| `users` | (sin dependencias de otros módulos; nunca importa `auth`) |
 | `projects` | `users`, `auth` |
 | `proposals` | `projects`, `users`, `auth` |
 | `payments` | `projects`, `proposals`, `users`, `auth` |
 
 Reglas:
 
+- Excepción acotada `projects` <-> `proposals` (spec 005 D-B, reescrita por spec 007 D-E/D-H):
+  - Escritura: `projects` solo puede invocar funciones hoja de `proposals/services/proposal-transitions.ts` (p. ej. `rejectPendingProposals`, que `closeProject` llama dentro de su transacción al cerrar desde `published`). Ya no hace SQL de escritura sobre `proposals`. Esa función recibe el `tx`, no importa `db` ni `projects`.
+  - Lectura: `projects` conserva la lectura de las tablas Drizzle `proposals` y `payments` (no sus servicios) para contar propuestas (D3) y comprobar intentos de pago (D2).
+  - UI (spec 007 D-H): `projects/components/proposal-cta.tsx` importa `DeveloperProposalSection` de `proposals/components` (punto de extensión reservado por la spec 006). Es un import de UI `projects` -> `proposals`.
+  - `proposals` nunca importa `project.service`; solo las tablas de `projects`.
+  - Pagos (spec 009): `payments` escribe únicamente en `payment_attempts` (y en 010 en `processed_payment_events`) y solo lee las tablas Drizzle de `projects`, `proposals` y `users`; no importa sus servicios. El cliente de Stripe es el singleton `src/lib/stripe.ts` (solo servidor, rechaza claves live) y la lógica de negocio solo lo importa desde `@/lib/stripe`.
+- Selección (spec 008): `proposals/services/proposal-selection.service.ts` escribe en `projects` solo mediante `projects/services/project-transitions.ts` (hoja que recibe el `tx`, no importa `db`, `project.service` ni nada de `proposals`); `projects` sigue sin importar servicios de `proposals`.
 - La selección de propuesta es una operación transaccional que escribe en `proposals` y `projects`. Vive en `proposals` (servicio de selección) y usa una función de transición expuesta por `projects` (detalle en spec 008).
 - La transición `proposal_selected -> contracted` la ejecuta el servicio de `payments` llamando a la función de transición de `projects`, nunca por SQL directo desde otro módulo.
 - `src/app` es solo routing. Los clientes de Clerk, Stripe y Supabase son singletons mínimos en `src/lib`; la lógica de negocio vive en los módulos.
@@ -166,7 +174,7 @@ Matriz de alto nivel derivada de `BRIEF §4`. El enforcement (guards, middleware
 Notas:
 
 - Un solo rol por usuario (`client` | `developer` | `admin`), fijado al registrarse (D1). Un cliente no puede enviar propuestas a su propio proyecto.
-- El rol de administrador se asigna fuera de la app (manualmente); su alcance exacto se confirma en la spec 004 (D8).
+- El rol de administrador se asigna fuera de la app (manualmente). D8 confirmada en la spec 004: el administrador lee proyectos, propuestas y pagos y puede cerrar proyectos; no modera, no edita contenido ajeno, no inicia pagos, no selecciona propuestas y no cambia roles desde la app (ver `docs/specs/004-authentication-and-authorization.md`, RF7 y R3).
 - La información de contacto privada solo es visible según permisos (`BRIEF §6.6`); la spec 013 define qué datos ve el desarrollador ganador.
 
 ---
@@ -195,7 +203,7 @@ Notas:
 - Prefijo `NNN-slug.md` para specs en `docs/specs/`.
 - Esta arquitectura se documenta en `docs/architecture/` y se referencia desde `SETUP.md §4`.
 
-### D1-D10 (aprobadas con la propuesta por defecto)
+### D1-D11 (aprobadas con la propuesta por defecto)
 
 | Id | Decisión | Spec destino |
 |---|---|---|
@@ -208,6 +216,7 @@ Notas:
 | D7 | Ubicación del cliente Drizzle y schema: se reserva `src/lib/db`; decisión final en la spec 003 | 003 |
 | D8 | Admin: lectura de proyectos/propuestas/pagos y cierre de proyectos; sin moderación | 004 |
 | D9 | Solo USD en el MVP, moneda almacenada con el importe; decimales/centavos se deciden en la spec 003 | 003 |
-| D10 | Convención de variables de entorno y `.env.example`: sigue abierta; se propone resolver en 009/017 | 009, 017 |
+| D10 | Convención de variables de entorno y `.env.example`: **resuelta para las variables de Stripe en la spec 009** (nombres `UPPER_SNAKE`, secretos nunca con `NEXT_PUBLIC_`, `.env.example` solo con nombres agrupados por proveedor, `.env.local` nunca se commitea). `STRIPE_SECRET_KEY` y `APP_URL` son solo de servidor; `STRIPE_WEBHOOK_SECRET` llega con la spec 010. El valor por entorno queda para la 017 | 009, 017 |
+| D11 | Tecnologías de un proyecto como **catálogo cerrado** en BD (`technologies`) con relación N:M (`project_technologies`), en lugar de texto libre; se identifican por `slug` en formularios y URL, mínimo 1 y máximo 10 por proyecto. «Otros» es solo una etiqueta (sin texto asociado). El alta de tags se hace por migración. `developer_profiles.technologies` queda fuera de alcance (texto libre) | 009c |
 
 Cualquier cambio de arquitectura requiere una spec aprobada.

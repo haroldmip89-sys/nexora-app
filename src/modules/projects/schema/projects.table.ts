@@ -34,10 +34,6 @@ export const projects = pgTable(
     budgetMaxCents: integer("budget_max_cents").notNull(),
     currency: text("currency").notNull().default("USD"),
     timelineWeeks: integer("timeline_weeks").notNull(),
-    technologies: text("technologies")
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
     status: projectStatusEnum("status").notNull().default("draft"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     contractedAt: timestamp("contracted_at", { withTimezone: true }),

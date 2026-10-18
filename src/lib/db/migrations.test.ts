@@ -9,12 +9,17 @@ const sqlFiles = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"));
 const sql = sqlFiles.map((f) => readFileSync(join(MIGRATIONS_DIR, f), "utf8")).join("\n");
 
 describe("generated migration SQL", () => {
-  it("has a single initial migration", () => {
-    expect(sqlFiles).toHaveLength(1);
+  it("has one .sql file per journal entry", () => {
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as {
+      entries: unknown[];
+    };
+    expect(sqlFiles).toHaveLength(journal.entries.length);
   });
 
-  it("creates the 7 tables", () => {
+  it("creates the 9 tables", () => {
     for (const table of [
+      "technologies",
+      "project_technologies",
       "users",
       "developer_profiles",
       "projects",
@@ -95,9 +100,11 @@ describe("migration applied to PGlite", () => {
         "developer_profiles",
         "payment_attempts",
         "processed_payment_events",
+        "project_technologies",
         "projects",
         "proposal_selections",
         "proposals",
+        "technologies",
         "users",
       ]),
     );
@@ -113,6 +120,8 @@ describe("migration applied to PGlite", () => {
         "projects_catalog_recent_idx",
         "projects_catalog_category_idx",
         "projects_client_created_idx",
+        "project_technologies_technology_idx",
+        "technologies_name_lower_idx",
         "proposals_developer_created_idx",
         "payment_attempts_project_created_idx",
       ]),
@@ -129,5 +138,24 @@ describe("migration applied to PGlite", () => {
     await expect(ctx.client.query(`select 'paid'::payment_attempt_status`)).rejects.toThrow();
     await expect(ctx.client.query(`select 'open'::proposal_status`)).rejects.toThrow();
     await expect(ctx.client.query(`select 'other'::processed_event_result`)).rejects.toThrow();
+  });
+
+  it("seeds the technologies catalog", async () => {
+    const { rows } = await ctx.client.query<{ slug: string; name: string; sort_order: number }>(
+      `select slug, name, sort_order from technologies order by sort_order`,
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(40);
+    expect(rows.length).toBeLessThanOrEqual(60);
+    expect(rows[rows.length - 1].slug).toBe("otros");
+    expect(rows.filter((r) => r.sort_order === 9999)).toHaveLength(1);
+    expect(new Set(rows.map((r) => r.name.toLowerCase())).size).toBe(rows.length);
+    for (const r of rows) expect(r.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+  });
+
+  it("no longer has projects.technologies", async () => {
+    const { rows } = await ctx.client.query(
+      `select 1 from information_schema.columns where table_name = 'projects' and column_name = 'technologies'`,
+    );
+    expect(rows).toHaveLength(0);
   });
 });

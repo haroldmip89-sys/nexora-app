@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+import { SiteHeader, SiteHeaderFallback } from "@/modules/auth/components/site-header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,11 +22,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      >
+        <body className="min-h-full flex flex-col">
+          <Suspense fallback={<SiteHeaderFallback />}>
+            <SiteHeader />
+          </Suspense>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

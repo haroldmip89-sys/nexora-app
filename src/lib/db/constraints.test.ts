@@ -186,6 +186,66 @@ describe("projects", () => {
   });
 });
 
+describe("technologies", () => {
+  const insertTech = (slug: string, name: string, order = 5000) =>
+    ctx.client.query(`insert into technologies (slug, name, sort_order) values ($1, $2, $3)`, [slug, name, order]);
+  const link = (projectId: string, techId: string) =>
+    ctx.client.query(`insert into project_technologies (project_id, technology_id) values ($1, $2)`, [
+      projectId,
+      techId,
+    ]);
+  const tagId = async (slug: string) =>
+    (await one(`select id from technologies where slug = $1`, [slug])).id;
+
+  it("rejects a duplicate slug", async () => {
+    await insertTech("t-dup", "T Dup A");
+    await expect(insertTech("t-dup", "T Dup B")).rejects.toThrow(/unique/i);
+  });
+
+  it("rejects a name that differs only in case", async () => {
+    await insertTech("t-case-a", "CaseName");
+    await expect(insertTech("t-case-b", "casename")).rejects.toThrow(/unique/i);
+    await expect(insertTech("t-java-2", "java")).rejects.toThrow(/unique/i);
+  });
+
+  it.each(["C#", "a b", "-x", "x-", "A", "a--b"])("rejects invalid slug %s", async (slug) => {
+    await expect(insertTech(slug, `Invalid ${slug}`)).rejects.toThrow(/check constraint/i);
+  });
+
+  it("rejects a repeated (project, tag) pair", async () => {
+    const projectId = await createProject(await createUser());
+    const react = await tagId("react");
+    await link(projectId, react);
+    await expect(link(projectId, react)).rejects.toThrow(/unique|duplicate/i);
+  });
+
+  it("rejects an unknown project or tag (FK)", async () => {
+    const projectId = await createProject(await createUser());
+    const ghost = "00000000-0000-0000-0000-000000000000";
+    await expect(link(ghost, await tagId("react"))).rejects.toThrow(/foreign key/i);
+    await expect(link(projectId, ghost)).rejects.toThrow(/foreign key/i);
+  });
+
+  it("restricts deleting a tag in use", async () => {
+    const projectId = await createProject(await createUser());
+    const go = await tagId("go");
+    await link(projectId, go);
+    await expect(ctx.client.query(`delete from technologies where id = $1`, [go])).rejects.toThrow(
+      /foreign key/i,
+    );
+  });
+
+  it("cascades bridge rows when a project is deleted", async () => {
+    const projectId = await createProject(await createUser());
+    await link(projectId, await tagId("rust"));
+    await ctx.client.query(`delete from projects where id = $1`, [projectId]);
+    const { rows } = await ctx.client.query(`select 1 from project_technologies where project_id = $1`, [
+      projectId,
+    ]);
+    expect(rows).toHaveLength(0);
+  });
+});
+
 describe("proposals", () => {
   it("rejects a second proposal from the same developer (even withdrawn)", async () => {
     const clientId = await createUser();

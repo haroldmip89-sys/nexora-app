@@ -8,6 +8,27 @@
       "when": 1792128946710,
       "tag": "0000_minor_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792286040661,
+      "tag": "0001_warm_lyja",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792286042570,
+      "tag": "0002_technologies_seed_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792286052589,
+      "tag": "0003_nappy_sasquatch",
+      "breakpoints": true
     }
   ]
 }
