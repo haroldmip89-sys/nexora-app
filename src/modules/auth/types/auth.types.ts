@@ -20,7 +20,10 @@ export type Action =
   | "proposal.read"
   | "proposal.select"
   | "payment.start"
-  | "payment.read";
+  | "payment.read"
+  | "payout.manage"
+  | "profile.edit"
+  | "rating.create";
 
 export type AuthErrorCode = "UNAUTHENTICATED" | "ONBOARDING_REQUIRED" | "FORBIDDEN" | "NOT_FOUND";
 

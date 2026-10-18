@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDashboardLink } from "@/modules/auth/services/dashboard-link";
+import { getAccountLink, getDashboardLink } from "@/modules/auth/services/dashboard-link";
 import type { NavViewer } from "@/modules/auth/types/nav-viewer.types";
 
 describe("getDashboardLink", () => {
@@ -14,5 +14,21 @@ describe("getDashboardLink", () => {
 
   it.each(cases)("%s", (_name, viewer, expected) => {
     expect(getDashboardLink(viewer)).toEqual(expected);
+  });
+});
+
+describe("getAccountLink", () => {
+  const link = { href: "/dashboard/account", label: "Mi cuenta" };
+  const cases: [string, NavViewer, { href: string; label: string } | null][] = [
+    ["developer", { kind: "user", role: "developer" }, link],
+    ["client", { kind: "user", role: "client" }, null],
+    ["admin", { kind: "user", role: "admin" }, null],
+    ["needs_onboarding", { kind: "needs_onboarding" }, null],
+    ["visitor", { kind: "visitor" }, null],
+    ["degraded", { kind: "degraded" }, null],
+  ];
+
+  it.each(cases)("%s", (_name, viewer, expected) => {
+    expect(getAccountLink(viewer)).toEqual(expected);
   });
 });

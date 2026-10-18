@@ -13,6 +13,9 @@ const PERMISSIONS: Record<Action, readonly Role[]> = {
   "proposal.select": ["client"],
   "payment.start": ["client"],
   "payment.read": ["client", "developer", "admin"],
+  "payout.manage": ["developer"],
+  "profile.edit": ["developer"],
+  "rating.create": ["client"],
 };
 
 /** Role-level permission only; ownership is checked separately with requireOwnership. `null` = visitor. */

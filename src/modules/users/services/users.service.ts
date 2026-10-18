@@ -5,8 +5,8 @@ import { users } from "@/modules/users/schema/users.table";
 
 export type AuthUserRow = typeof users.$inferSelect;
 
-const DELETED_EMAIL_DOMAIN = "@deleted.invalid";
-const DELETED_DISPLAY_NAME = "Deleted user";
+export const DELETED_EMAIL_DOMAIN = "@deleted.invalid";
+export const DELETED_DISPLAY_NAME = "Deleted user";
 
 export async function findByClerkUserId(clerkUserId: string): Promise<AuthUserRow | null> {
   const [row] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId)).limit(1);

@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 009b (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 018 y 019 (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -137,7 +137,7 @@ Prepara un proyecto publicado con propuestas de los Desarrolladores A y B.
 
 ## 7. Spec 009 — Pago de prueba con Stripe Checkout (Test Mode)
 
-Esta spec solo **crea** el pago de prueba. La confirmación (`completed_test`) y el paso a "Contratado" llegan con la spec 010: en esta fase un pago hecho en Stripe nunca se refleja como completado.
+Esta spec solo **crea** el pago de prueba. La confirmación (`completed_test`) y el paso a "En contratación" llegan con la spec 010 (sección 8). Las casillas de esta sección valen **sin** `stripe listen` activo: sin listener ni reconciliación un pago hecho en Stripe no se refleja como completado.
 
 ### Preparación con Stripe (una sola vez)
 
@@ -146,7 +146,7 @@ Esta spec solo **crea** el pago de prueba. La confirmación (`completed_test`) y
 - [ ] En `.env.local` añade `APP_URL=http://localhost:3000` (o el puerto que uses). Ninguna de las dos variables lleva prefijo `NEXT_PUBLIC_`.
 - [ ] Reinicia `npm run dev` para que lea las variables.
 - [ ] Para pagar en la página de Stripe usa la tarjeta `4242 4242 4242 4242`, cualquier fecha futura, cualquier CVC y cualquier código postal.
-- La CLI de Stripe (`stripe login`, `stripe listen`) y `STRIPE_WEBHOOK_SECRET` **no** hacen falta aquí: son solo para la spec 010.
+- La CLI de Stripe (`stripe login`, `stripe listen`) y `STRIPE_WEBHOOK_SECRET` **no** hacen falta para esta sección; son para la spec 010 (sección 8). Si los tienes activos, el pago de prueba se confirma y las casillas "sigue `pending`" no aplican: usa la sección 8.
 
 Prepara con la cuenta Cliente un proyecto en "Con propuesta seleccionada" (sección 6).
 
@@ -169,12 +169,12 @@ Prepara con la cuenta Cliente un proyecto en "Con propuesta seleccionada" (secci
 - [ ] **Doble clic:** pulsar el botón dos veces rápido no crea dos intentos ni dos sesiones.
 - [ ] **Dos pestañas:** abre la página en dos pestañas y pulsa el botón en ambas. Termina con un solo intento activo y una sola sesión.
 - [ ] **Pago de prueba:** pagar con `4242 4242 4242 4242` vuelve a `/projects/<id>/payment?checkout=success`, con el aviso "Volviste desde Stripe. Esto no confirma el pago: esperamos la verificación del servidor.".
-  - [ ] El panel dice "Pendiente de confirmación del servidor". **Nunca** aparece "completado" ni "pagado" (eso llega con la spec 010).
-  - [ ] La fila sigue `pending` y el proyecto sigue en `proposal_selected`.
+  - [ ] Sin `stripe listen` activo: el panel dice "Pendiente de confirmación del servidor". **Nunca** aparece "completado" ni "pagado" solo por volver del navegador (la confirmación llega por webhook o por "Actualizar estado", sección 8).
+  - [ ] Sin `stripe listen` activo: la fila sigue `pending` y el proyecto sigue en `proposal_selected`.
   - [ ] Pulsar "Continuar en Stripe" no crea otro pago: responde "Ya hay un pago de prueba en curso, pendiente de confirmación del servidor.".
 - [ ] **Parámetro manipulado:** escribir `?checkout=success` a mano en la URL de un proyecto sin pago iniciado no cambia ningún estado y el panel sigue mostrando el estado real ("Aún no iniciaste el pago de prueba."). Probar también `?checkout=cualquiercosa`: no muestra aviso.
-- [ ] **Cierre bloqueado:** con un intento `pending`, "Cerrar proyecto" en `/dashboard/projects` falla con `PAYMENT_IN_PROGRESS` ("No puedes cerrar el proyecto mientras haya un pago en curso.").
-- [ ] **Sesión vencida (opcional, tarda 60 minutos):** pasado ese tiempo sin pagar, pulsar el botón cancela el intento viejo (`canceled`) y crea uno nuevo con otra sesión; solo hay uno activo.
+- [ ] **Cierre bloqueado:** con un intento `pending`, "Cerrar proyecto" en `/dashboard/projects` falla con `PAYMENT_IN_PROGRESS` ("No puedes cerrar el proyecto mientras haya un pago en curso."). Con `stripe listen` activo, el evento `expired` (sección 8, paso 5) también desbloquea el cierre.
+- [ ] **Sesión vencida (opcional, tarda 60 minutos):** pasado ese tiempo sin pagar, pulsar el botón cancela el intento viejo (`canceled`) y crea uno nuevo con otra sesión; solo hay uno activo. Con `stripe listen` activo el intento ya habrá pasado a `canceled` por el evento `checkout.session.expired`.
 
 ### Configuración y errores
 
@@ -280,18 +280,111 @@ Usa las cuentas de la sección 0 (Cliente, Desarrollador A) y, si la preparaste,
 - [ ] Con teclado (Tab para moverse, Espacio para marcar, Enter para enviar) se pueden elegir tags y enviar el formulario y el filtro; el foco es visible en cada mosaico.
 - [ ] Un lector de pantalla anuncia cada mosaico como casilla con su nombre y estado (marcada o no), y el grupo con su leyenda "Tecnologías".
 
-## 8. Revisión visual transversal
+## 8. Spec 010 — Estado del pago y webhooks de Stripe (Test Mode)
+
+### Preparación con la CLI de Stripe (una sola vez)
+
+- [ ] Instala la CLI de Stripe y ejecuta `stripe login` (modo de prueba).
+- [ ] Ejecuta `stripe listen --events checkout.session.completed,checkout.session.expired,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed --forward-to localhost:3000/api/webhooks/stripe` y deja la terminal abierta.
+- [ ] Copia el `whsec_...` que imprime a `STRIPE_WEBHOOK_SECRET` en `.env.local` (la variable ya figura en `.env.example`; sin prefijo `NEXT_PUBLIC_`) y **reinicia `npm run dev`**.
+- [ ] Prepara con la cuenta Cliente un proyecto en "Con propuesta seleccionada" (sección 6). Tarjetas: `4242 4242 4242 4242` (éxito) y `4000 0000 0000 0002` (rechazo), cualquier fecha futura, CVC y código postal.
+
+### Pasos
+
+1. [ ] **Pago correcto:** paga con `4242 4242 4242 4242` desde la página de pago.
+   - [ ] En la terminal de `stripe listen` aparece `checkout.session.completed` con 200.
+   - [ ] En Neon: el intento queda `completed_test` con `stripe_payment_intent_id` y `completed_at`; el proyecto `contracted` con `contracted_at`; hay una fila `applied` en `processed_payment_events`.
+   - [ ] En la UI: "En contratación" en "Mis proyectos" (con el enlace "Ver pago de prueba"), panel "Completado en Test Mode · confirmado por el servidor", paso 3 completo, paso 4 "Pendiente de implementación" y ningún texto de dinero recibido.
+2. [ ] **Idempotencia:** reenvía el mismo evento con `stripe events resend <evt_id>` (**a verificar** que llegue al listener local; si no, repite la petición firmada guardada con `--print-json` dentro de 5 minutos con `curl`). Respuesta 200, sin cambios y sin segunda fila en `processed_payment_events`.
+3. [ ] **Evento ajeno (sintético):** `stripe trigger checkout.session.completed` genera una sesión sin intento: respuesta 200, el log del servidor dice `attempt_not_found`, se crea una fila `ignored` con `payment_attempt_id` NULL y nada más cambia.
+4. [ ] **Rechazo de tarjeta (P1):** paga con `4000 0000 0000 0002`. Stripe muestra el rechazo en su página y el intento sigue `pending`: un rechazo de tarjeta **no produce "Fallido"** (`failed` solo llega con el fallo definitivo de un método asíncrono). Paga después con `4242` en la misma sesión: se completa como en el paso 1.
+5. [ ] **Expiración:** con un intento `pending`, expira la sesión con `stripe checkout sessions expire <cs_test_...>`. Llega `checkout.session.expired`, el intento pasa a `canceled`, el proyecto sigue `proposal_selected`, "Cerrar proyecto" ya no responde `PAYMENT_IN_PROGRESS` y se puede reintentar el pago.
+6. [ ] **Firma alterada:** `curl -i -X POST http://localhost:3000/api/webhooks/stripe -H "Stripe-Signature: t=1,v1=firma_falsa" -d '{}'` responde 400; sin la cabecera también 400; no aparece ninguna fila nueva en `processed_payment_events`.
+7. [ ] **Sin `stripe listen` (reconciliación):** detén el listener, paga con `4242` y vuelve a la página: el intento sigue "Pendiente". Pulsa "Actualizar estado": pasa a completado y el proyecto a "En contratación". Con la sesión aún abierta (sin pagar), "Actualizar estado" muestra "Stripe todavía no confirma el pago.".
+8. [ ] **Retorno del navegador:** volver con `?checkout=success` antes de que llegue el evento sigue mostrando "pendiente"; escribir `?checkout=success` a mano en otro proyecto no cambia nada.
+9. [ ] **Secreto ausente:** quita `STRIPE_WEBHOOK_SECRET`, reinicia y envía un evento: 500 y ningún cambio. Restaura y reinicia.
+10. [ ] **Privacidad y logs:** el log del servidor no contiene cuerpos de evento, correos ni secretos; el HTML de la página no contiene ids de Stripe.
+11. [ ] **Método asíncrono (opcional, solo si la cuenta de prueba tiene uno habilitado):** `completed` con `unpaid` no completa el pago; el evento asíncrono posterior sí.
+12. [ ] **Responsive y accesibilidad** del botón "Actualizar estado" a 390 px: operable con teclado, foco visible y resultado anunciado en una región `aria-live`.
+
+## 8b. Spec 011a — Cuentas conectadas (Stripe Connect, modo de prueba)
+
+Cubre solo la cuenta conectada del desarrollador y su onboarding. No hay transferencias ni movimiento de dinero (eso llega con 011b). Todo el flujo es de prueba y la página lo indica con "Cobros de prueba · no es dinero real".
+
+### Preparación (una sola vez)
+
+- [ ] **Precondición:** en el Dashboard de Stripe, **en modo de prueba**, activa Connect (Settings > Connect; completa el perfil de plataforma si lo pide) y anota el país de tu cuenta de plataforma. **A verificar:** que ese país admite una plataforma con cuentas conectadas `US`. Sin Connect activo, "Configurar cobros de prueba" mostrará "Los cobros de prueba no están disponibles en este entorno.".
+- [ ] No hay variables nuevas: valen `STRIPE_SECRET_KEY` (`sk_test_...`) y `APP_URL`.
+- [ ] Aplica la migración `0004_connected_accounts` en Neon con `npm run db:migrate` (lo haces tú; los agentes no la ejecutan).
+
+### Pasos
+
+1. [ ] **Onboarding completo:** con la cuenta Desarrollador A, ve a "Cobros de prueba", pulsa "Configurar cobros de prueba", completa el formulario de Stripe con datos de prueba (teléfono de prueba, código `000000`, SSN `000-00-0000`, dirección `address_full_match`, routing `110000000`, cuenta `000123456789`; **a verificar** según el formulario vigente) y vuelve. La página muestra "Lista para recibir transferencias de prueba" y el aviso "Volviste desde Stripe...". En Neon hay una sola fila con `acct_...` y `status = 'active'`. En el Dashboard (Connect > Accounts) aparece una sola cuenta.
+   - [ ] **A verificar:** que la combinación de parámetros de creación (`controller` con panel `express`, comisiones y pérdidas a cargo de la plataforma, recolección de requisitos por Stripe, solo la capacidad `transfers`) la acepta Stripe para `country: 'US'` en modo de prueba, y que esos datos de prueba dejan `capabilities.transfers = 'active'`.
+2. [ ] **Idempotencia:** antes de completar el onboarding, pulsa "Configurar" dos veces o en dos pestañas: queda una sola fila y una sola cuenta en Stripe. **A verificar:** la ventana real de la clave de idempotencia de `accounts.create` (se asume al menos 24 h, igual que en 009).
+3. [ ] **Abandono y continuación:** sal del onboarding a mitad. La página muestra "Sin configurar" con "Continuar configuración en Stripe", que reanuda la misma cuenta.
+4. [ ] **Enlace caducado:** reabre una URL de onboarding ya usada. Stripe redirige a `/dashboard/payouts/onboarding/refresh` y se abre un enlace nuevo. **A verificar:** que la sesión de Clerk llega a las URLs de return y refresh tras la redirección desde `connect.stripe.com` (cookie `SameSite=Lax`) y que la URL del enlace es `https://*.stripe.com`.
+5. [ ] **En revisión y requiere acción:** con los datos de prueba que fuerzan verificación pendiente o fallida (**a verificar** en la documentación de pruebas de Connect), comprueba "En revisión por Stripe" o "Requiere acción" y que "Completar datos en Stripe" abre el onboarding.
+6. [ ] **Actualizar estado:** cambia algo en el Dashboard (p. ej. rechaza la cuenta de prueba) y pulsa "Actualizar estado": la etiqueta cambia.
+7. [ ] **Permisos:** con la cuenta Cliente, `/dashboard/payouts`, `/dashboard/payouts/onboarding/return` y `/dashboard/payouts/onboarding/refresh` dan 404 y el header no muestra "Cobros de prueba". Sin sesión, redirigen a `/sign-in`. El Desarrollador B no ve la cuenta de A.
+8. [ ] **Configuración:** con `STRIPE_SECRET_KEY` live (`sk_live_...` ficticia) o sin ella, "Configurar" muestra "Los cobros de prueba no están disponibles en este entorno." y no escribe en Neon. Restaura la clave después.
+9. [ ] **Cuenta inexistente:** borra la cuenta de prueba en el Dashboard y pulsa "Actualizar estado": aparece "No encontramos tu cuenta de cobros de prueba en Stripe. Contacta con el administrador.". **A verificar:** el código y tipo de error de Stripe en este caso (esperado `StripeInvalidRequestError` o `StripePermissionError` con `code` `account_invalid` o `resource_missing`). Reseteo manual (solo modo de prueba): `DELETE FROM connected_accounts WHERE user_id = '<id>';`.
+10. [ ] **Privacidad y logs:** el log del servidor y el HTML de la página no contienen `acct_...`, URLs de onboarding, correos ni claves.
+11. [ ] **Navegación:** el header del Desarrollador muestra "Mis propuestas" y "Mi cuenta" (ya no "Cobros de prueba", ver 019 D15); los de Cliente, administrador y visitante no cambian.
+12. [ ] **Responsive y accesibilidad** a 390 px: botones operables con teclado, foco visible, mensajes en `aria-live` y aviso "no es dinero real" visible.
+
+## 8c. Spec 018 — Descripción de proyecto en Markdown
+
+No requiere variables nuevas ni migración. Las filas antiguas en texto plano siguen funcionando.
+
+1. [ ] **README completo:** con la cuenta Cliente, crea un proyecto con un README completo (títulos, negrita, cursiva, listas, lista de tareas, cita, tabla, código en línea y bloque de código, enlace). La pestaña "Vista previa" y el detalle público `/projects/[id]` (tras publicar) se ven iguales.
+2. [ ] **Encabezados:** `#` y `##` salen como títulos de sección; la página no tiene un segundo título principal.
+3. [ ] **Seguridad:** pega `<script>alert(1)</script>`, `<img src=x onerror=alert(1)>` y `[x](javascript:alert(1))`. No se ejecuta nada, no aparece ninguna imagen y el enlace `javascript:` se muestra como texto sin enlace.
+4. [ ] **Imágenes y enlaces:** `![logo](https://ejemplo.com/a.png)` muestra solo el texto "logo", sin petición de red (pestaña Network). Los enlaces `https://` abren en pestaña nueva con `rel` que incluye `noopener noreferrer nofollow ugc`.
+5. [ ] **Catálogo:** `/projects` muestra el resumen sin símbolos (`##`, `**`, `|---|`) y el título de la pestaña/`meta description` del detalle es texto plano.
+6. [ ] **Edición:** edita un proyecto `published` (la descripción sigue editable) y un borrador antiguo en texto plano; los saltos de línea simples de textos antiguos se ven unidos (comportamiento README esperado).
+7. [ ] **Tablas y móvil:** a 390 px una tabla ancha hace scroll horizontal dentro de su contenedor, sin desbordar la página.
+8. [ ] **Accesibilidad:** las casillas de tarea no son interactivas y el lector de pantalla anuncia "Completado"/"Pendiente"; el editor y la cabecera "Markdown" son operables con teclado.
+
+## 8d. Spec 019 — Perfil del desarrollador y "Mi cuenta"
+
+1. [ ] **Preparación:** el humano aplica la migración en Neon con `npm run db:migrate`. Cuentas: Desarrollador A, Desarrollador B, Cliente C (con un proyecto y una propuesta aceptada de A), Cliente D (sin relación), Admin (opcional) y un visitante en ventana de incógnito.
+2. [ ] **Editor (A):** `/dashboard/account` aparece vacío. Guarda titular, ubicación, disponibilidad, biografía y 2 enlaces; recarga y comprueba que persisten. Cambia un campo y pulsa "Descartar cambios": vuelve al valor guardado.
+3. [ ] **Validación:** prueba una biografía de 1001 caracteres, un enlace `http://x.com`, `javascript:alert(1)`, 6 enlaces y un correo inválido. Cada error sale junto a su campo, el foco va al primero y nada se guarda.
+4. [ ] **Perfil público:** `/developers/<id de A>` sin sesión muestra el perfil sin correo. Escribe `<script>alert(1)</script>` en la biografía y comprueba que se ve como texto. Los enlaces llevan `rel="noopener noreferrer nofollow"`. El código fuente de la página no contiene el correo de contacto ni el de acceso.
+5. [ ] **Privacidad del correo:** prueba `accepted_client`, `any_client` y `nobody` con C, D, B, Admin y el visitante. Con `accepted_client` solo C lo ve; con `any_client`, cualquier cliente con sesión; con `nobody`, nadie salvo A. Visitante, otro desarrollador y Admin no lo ven en ninguna opción. Anonimiza a A en Neon de prueba (o usa una cuenta ya anonimizada) y comprueba que el correo no aparece.
+6. [ ] **Permisos:** Cliente y Admin reciben 404 en `/dashboard/account`; sin sesión redirige a `/sign-in`; B no ve ni edita lo de A; `/developers/<uuid de un cliente>` da 404.
+7. [ ] **Header:** A ve "Proyectos", "Mis propuestas" y "Mi cuenta" (resaltado en la cuenta) y no "Cobros de prueba". Los demás roles no ven "Mi cuenta".
+8. [ ] **Cobros dentro de la cuenta:** la tarjeta "Cobros de prueba" abre `/dashboard/payouts`; allí "Volver a Mi cuenta" regresa. El onboarding de Stripe (return y refresh) sigue llevando a `/dashboard/payouts`.
+9. [ ] **Sin perfil:** `/developers/<id de B>` antes de guardar muestra "Este desarrollador aún no completó su perfil".
+10. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal (header con tres enlaces incluido), todo operable con teclado, foco visible, objetivos de 44 px y errores anunciados. No hay botones de subir foto.
+
+## 8e. Spec 020 — Valoraciones del desarrollador
+
+1. [ ] **Preparación:** el humano aplica la migración en Neon con `npm run db:migrate`. Cuentas: Cliente C (con un proyecto `contracted` y propuesta aceptada de Desarrollador A), Cliente D (sin relación), Desarrollador A, un proyecto no contratado de C y un visitante en ventana de incógnito.
+2. [ ] **Valorar:** C abre `/projects/<id>/rate` desde "Valorar al desarrollador" (solo visible en proyectos `contracted`). Elige estrellas, escribe un comentario y comprueba el contador "n / 600" y su nombre abreviado en "Antes de enviar". Publica y aparece "Valoración publicada." con "Te quedan 14 días para editarla.".
+3. [ ] **Casos rechazados:** `/projects/<id>/rate` de un proyecto no contratado da 404; con D (cliente ajeno) y con A (desarrollador) también 404. Una segunda valoración del mismo proyecto no crea otra fila.
+4. [ ] **Editar:** dentro de la ventana, cambia estrellas y comentario y pulsa "Guardar cambios"; los datos se actualizan y los días restantes no aumentan.
+5. [ ] **Ventana vencida (solo pruebas):** ejecuta `UPDATE developer_ratings SET created_at = now() - interval '15 days'` sobre esa fila. La página queda en solo lectura con "Ya no puedes editarla.".
+6. [ ] **Perfil público sin sesión:** `/developers/<id de A>` muestra "4,6 · N valoraciones" (o "Aún sin valoraciones") y la sección "Valoraciones" con nombres abreviados, fecha y comentarios; sin valoraciones se ve el estado vacío.
+7. [ ] **Mi cuenta:** A abre `/dashboard/account` y ve "Tu valoración" con el promedio con coma y "de 5 · N valoraciones". "Ver valoraciones recibidas" lleva a `/developers/<id de A>#valoraciones`. El resumen no aparece en el perfil público.
+8. [ ] **Texto plano:** un comentario con `<script>alert(1)</script>` o `**negrita**` se ve literal, con saltos de línea respetados y textos largos sin desbordar.
+9. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal en el formulario, la lista ni el resumen; las estrellas se operan con teclado, con foco visible, y el valor se anuncia (`aria-label`), no solo por color.
+
+## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
 - [ ] Todos los controles son alcanzables y operables con teclado, con foco visible.
 - [ ] Ningún texto queda en inglés en la interfaz.
 
-## 9. Pendientes que no son pruebas, sino decisiones o mejoras ya detectadas
+## 10. Pendientes que no son pruebas, sino decisiones o mejoras ya detectadas
 
 Estas notas no bloquean, pero conviene tenerlas a la vista:
 
-- Sin la spec 010 un pago hecho en Stripe no se refleja como completado; 009 y 010 no deben llegar a usuarios finales por separado.
-- Hasta la spec 010 (o la cancelación explícita de la 012), un intento de pago abandonado queda `pending` y bloquea el cierre del proyecto (`PAYMENT_IN_PROGRESS`); la sesión vence a los 60 minutos y solo se reconcilia al pulsar el botón de pago.
+- La spec 010 refleja el pago por webhook verificado o por "Actualizar estado"; sin `stripe listen` (o un endpoint de webhook en despliegue, spec 017) un pago hecho en Stripe solo se confirma pulsando ese botón. 009 y 010 no deben llegar a usuarios finales por separado.
+- Un intento de pago abandonado se cancela con el evento `checkout.session.expired` o con "Actualizar estado"; si el webhook falta y el cliente no vuelve, queda `pending` y bloquea el cierre (`PAYMENT_IN_PROGRESS`) hasta la cancelación explícita de la spec 012.
+- Rate limiting del endpoint del webhook y de la acción de refresco: pendiente (spec 015).
+- Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno. El rate limiting de las acciones y rutas de cobros queda para la spec 015.
 - El header global ya existe (spec 009b, sección 7b). El landing de `/` y la metadata global (título, `lang`, 404 con marca) siguen pendientes; la spec 006 los recomendó en una spec propia (`006b-landing-and-site-header`).
 - La paginación del catálogo solo tiene "Anterior / Siguiente", sin números de página.
 - En la spec 008, con algunos errores raros de selección el diálogo puede cerrarse al refrescar sin mostrar el mensaje. Se pulirá en la spec 014.

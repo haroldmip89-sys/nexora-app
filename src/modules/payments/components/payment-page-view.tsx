@@ -6,6 +6,7 @@ import {
   PaymentProgress,
   type PaymentProgressProps,
 } from "@/modules/payments/components/payment-progress";
+import { RefreshPaymentButton } from "@/modules/payments/components/refresh-payment-button";
 import { StartCheckoutButton } from "@/modules/payments/components/start-checkout-button";
 import {
   PAYMENT_ATTEMPT_STATUS_LABELS,
@@ -26,13 +27,19 @@ const RETURN_NOTICES = {
     "Volviste desde Stripe sin completar el pago desde esta pantalla. Puedes retomarlo cuando quieras.",
 } as const;
 
-const ATTEMPT_TEXT: Record<PaymentAttemptStatus, string> = {
+const ATTEMPT_TEXT: Record<Exclude<PaymentAttemptStatus, "completed_test">, string> = {
   pending:
-    "Pendiente de confirmación del servidor. Si ya pagaste en Stripe, esta página se actualizará cuando el servidor lo verifique (puede tardar unos segundos).",
+    "Pendiente de confirmación del servidor. Si ya pagaste en Stripe, puede tardar unos segundos; usa «Actualizar estado» para consultar de nuevo.",
   canceled: "El intento anterior se cerró sin completarse.",
   failed: "El intento anterior falló.",
-  completed_test: "Pago de prueba confirmado por el servidor. No se movió dinero real.",
 };
+
+function attemptText(status: PaymentAttemptStatus, projectStatus: string): string {
+  if (status !== "completed_test") return ATTEMPT_TEXT[status];
+  return projectStatus === "contracted"
+    ? "Pago de prueba confirmado por el servidor. El proyecto está en contratación. No se movió dinero real y la transferencia al desarrollador sigue pendiente de implementación."
+    : "Pago de prueba confirmado por el servidor. No se movió dinero real.";
+}
 
 function badgeLabel(status: PaymentAttemptStatus): string {
   return status === "completed_test"
@@ -151,7 +158,7 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
 
         <p className="mt-2 text-sm text-[#202522]">
           {attempt
-            ? ATTEMPT_TEXT[attempt.status]
+            ? attemptText(attempt.status, project.status)
             : closedWithoutPayment
               ? "Este proyecto ya no admite un nuevo pago de prueba."
               : "Aún no iniciaste el pago de prueba."}
@@ -166,15 +173,7 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
           <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-3">
             <StartCheckoutButton projectId={project.id} label={buttonLabel} />
             {canResume ? (
-              <Link
-                href={`/projects/${project.id}/payment`}
-                className={cn(
-                  "inline-flex h-10 items-center text-sm font-medium text-[#183D30] underline",
-                  FOCUS,
-                )}
-              >
-                Actualizar estado
-              </Link>
+              <RefreshPaymentButton projectId={project.id} />
             ) : null}
           </div>
         ) : null}

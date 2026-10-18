@@ -16,6 +16,14 @@ function roleLink(role: Role): NavLinkItem | null {
   }
 }
 
+/** Account (profile) link: developers only (spec 019; replaces the 011a payouts link). */
+export function getAccountLink(viewer: NavViewer): NavLinkItem | null {
+  if (viewer.kind === "user" && viewer.role === "developer") {
+    return { href: "/dashboard/account", label: "Mi cuenta" };
+  }
+  return null;
+}
+
 /** Only place that knows the role -> dashboard map. Admin has no dashboard (null). */
 export function getDashboardLink(viewer: NavViewer): NavLinkItem | null {
   switch (viewer.kind) {

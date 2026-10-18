@@ -131,6 +131,33 @@ describe("visibility and projection", () => {
   });
 });
 
+describe("markdown description", () => {
+  it("returns a plain text summary in the list and the full Markdown in the detail", async () => {
+    await wipe();
+    const md = "## Hola **mundo**\n\n- [enlace](https://a.com) y `codigo`\n\n<script>alert(1)</script>";
+    const row = await seed({ description: md });
+    const [item] = (await listPublicProjects(q())).items;
+    expect(item.summary).toContain("Hola mundo");
+    expect(item.summary).not.toMatch(/[#*`\]\[<>]|\]\(/);
+    expect((await getPublicProject(row.id))!.description).toBe(md);
+  });
+
+  it("summarizes exactly as Hola mundo and bounds long Markdown to 240", async () => {
+    await wipe();
+    await seed({ description: "## Hola **mundo**" });
+    expect((await listPublicProjects(q())).items[0].summary).toBe("Hola mundo");
+    await wipe();
+    await seed({ description: "**palabra** ".repeat(400).slice(0, 5000) });
+    expect((await listPublicProjects(q())).items[0].summary.length).toBeLessThanOrEqual(240);
+  });
+
+  it("keeps drafts out of the catalog", async () => {
+    await wipe();
+    await seed({ description: "## Draft **hidden**" }, "draft");
+    expect((await listPublicProjects(q())).items).toEqual([]);
+  });
+});
+
 describe("getPublicProject", () => {
   it("returns null for non published, unknown and malformed ids", async () => {
     await wipe();

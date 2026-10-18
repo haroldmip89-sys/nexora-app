@@ -24,7 +24,7 @@ Traducción de las reglas de `BRIEF §7` a dominio:
 | 1, 3, 6 | `project.status = published` es la única condición que admite propuestas |
 | 4, 5, 7 | `proposalSelection` 1:1 con proyecto; selección transaccional; solo el cliente propietario |
 | 8 | Acceso a proyecto/propuesta/pago privados solo por propietario, autor o administrador (matriz en §6) |
-| 9, 10, 11, 12 | El estado de pago solo cambia por webhook verificado; idempotencia vía `processedPaymentEvent`; `failed`/`canceled` nunca pasan a `completed_test` |
+| 9, 10, 11, 12 | El estado de pago solo cambia por webhook verificado o por lectura autenticada de la API de Stripe hecha por el servidor (botón «Actualizar estado», spec 010 D-F); idempotencia vía `processedPaymentEvent`; `failed`/`canceled` nunca pasan a `completed_test` |
 | 13, 14, 15 | `livemode=false` siempre; transferencia independiente del pago; sin comisiones |
 
 ---
@@ -37,7 +37,7 @@ Todas viven en Neon salvo indicación. Los nombres son conceptuales.
 |---|---|---|---|
 | Usuario (`user`) | Identidad interna vinculada a Clerk | `clerkUserId` (único), rol, nombre visible, email, fechas | 1 usuario : N proyectos (si cliente); 1 : N propuestas (si desarrollador); 1 : 0..1 perfil de desarrollador |
 | Rol | Atributo del usuario, no entidad aparte | `client` \| `developer` \| `admin` | Un solo rol por usuario (D1) |
-| Perfil del desarrollador (`developerProfile`) | Información pública/básica del desarrollador | titular, bio, tecnologías, enlace externo opcional | 1:1 con usuario (rol `developer`) |
+| Perfil del desarrollador (`developerProfile`) | Información pública/básica del desarrollador | titular, ubicación, disponibilidad, bio (texto plano), enlaces (hasta 5, solo https), correo de contacto opcional y su visibilidad (`accepted_client` por defecto, `any_client`, `nobody`); `technologies` y `external_url` quedan sin uso (spec 019) | 1:1 con usuario (rol `developer`) |
 | Proyecto (`project`) | Necesidad publicada por un cliente | título, categoría, descripción, presupuesto mín/máx USD, plazo en semanas, tecnologías (tags del catálogo), estado | N:1 cliente (usuario); 1:N propuestas; 0..1 selección; 0..N intentos de pago; N:M tecnologías |
 | Tecnología (`technology`) | Tag del catálogo cerrado y compartido (lenguajes, frameworks, bases de datos, etc., más «Otros») | `slug` (único), nombre (único sin distinguir mayúsculas), orden | N:M con proyecto (tabla puente `project_technologies`) |
 | Propuesta (`proposal`) | Oferta de un desarrollador a un proyecto | precio USD, plazo en semanas, descripción de la solución, estado | N:1 proyecto; N:1 desarrollador (usuario); como máximo una propuesta por desarrollador y proyecto (D5) |
@@ -45,6 +45,8 @@ Todas viven en Neon salvo indicación. Los nombres son conceptuales.
 | Intento de pago (`paymentAttempt`) | Un intento de pago en Stripe Checkout (test) | proyecto, propuesta ganadora, cliente, importe USD y moneda copiados de la propuesta en el servidor, id de Checkout Session, id de PaymentIntent (cuando exista), estado, `livemode=false` | N:1 proyecto; N:1 propuesta; como máximo un intento `pending` o `completed_test` por proyecto |
 | Evento de pago procesado (`processedPaymentEvent`) | Registro para idempotencia de webhooks | `stripeEventId` (único), tipo, fecha de recepción, resultado del procesamiento | referencia opcional al intento de pago afectado |
 | Registro de transferencia simulada (`simulatedTransfer`) | Liquidación al desarrollador, distinta del pago | intento de pago, desarrollador destino, estado | 1:1 con intento de pago `completed_test`. **Diferido** hasta la spec 011 (D6): antes, `transferStatus` se deriva del pago |
+| Cuenta conectada (`connectedAccount`) | Cuenta de Stripe Connect del desarrollador, solo modo de prueba (spec 011a) | usuario, id de cuenta de Stripe (único, nulo hasta que Stripe la crea), estado derivado (`not_started` \| `pending` \| `active` \| `restricted`), fecha de última sincronización | 1:0..1 con usuario de rol `developer`. Destino de la transferencia de 011b |
+| Valoración del desarrollador (`developerRating`) | Valoración del cliente al desarrollador contratado (spec 020) | proyecto (único), propuesta aceptada, estrellas 1 a 5, comentario opcional (<= 600, texto plano), fechas | 1:0..1 con proyecto; la propuesta aceptada da el desarrollador (no se guarda `developer_id` ni `client_id`) |
 
 ### Diagrama
 
@@ -60,6 +62,9 @@ erDiagram
     proposal ||--o{ paymentAttempt : "se paga con"
     paymentAttempt ||--o{ processedPaymentEvent : "afectado por"
     paymentAttempt ||--o| simulatedTransfer : "liquida (diferido, spec 011)"
+    user ||--o| connectedAccount : "cobra en (rol developer)"
+    project ||--o| developerRating : "se valora una vez (contratado)"
+    proposal ||--o{ developerRating : "identifica al desarrollador valorado"
 ```
 
 ### Invariantes de dominio
@@ -82,12 +87,13 @@ Nexora no almacena credenciales, contraseñas ni datos de tarjeta. Cada categor�
 | Identificador de identidad (`clerkUserId`) | Clerk | Copia en Neon como clave de vinculación única |
 | Email y nombre visible | Clerk | Copia en Neon para listados y relaciones; la spec 004 define la sincronización; mínima exposición de datos personales |
 | Rol de negocio | Neon (`user.role`) | Fuente de verdad de autorización. Puede reflejarse en metadata de Clerk solo como caché (D1) |
-| Perfil del desarrollador, proyectos, propuestas, selecciones | Neon | Datos de dominio |
-| Intentos de pago: estado, importe, relaciones con proyecto/propuesta | Neon | El estado local solo cambia por webhook verificado |
+| Perfil del desarrollador, proyectos, propuestas, selecciones | Neon | Datos de dominio. Del perfil, solo lo que publica el desarrollador; el nombre visible y el email de acceso siguen en Clerk/`users` y el correo de acceso nunca se expone (spec 019) |
+| Intentos de pago: estado, importe, relaciones con proyecto/propuesta | Neon | El estado local solo cambia por webhook verificado o lectura autenticada del servidor (010 D-F) |
 | Checkout Session, PaymentIntent, Event, instrumentos de pago, datos de tarjeta | Stripe | Neon guarda solo identificadores externos (únicos) y estado derivado. Nunca datos de tarjeta |
 | Eventos de webhook procesados | Neon (`processedPaymentEvent`) | Copia del `event.id` para idempotencia |
 | Archivos privados | Supabase Storage | MVP sin archivos; reservado. Acceso solo por URLs firmadas desde servidor (spec 015); Neon guardaría solo la ruta del objeto |
-| Cuenta conectada del desarrollador (Stripe Connect) | Stripe | Id en Neon; fuera de alcance hasta la spec 011 |
+| Cuenta conectada del desarrollador (Stripe Connect) | Stripe (fuente de verdad: datos personales, requisitos, capacidades) | Neon guarda solo el `stripe_account_id` único y el estado derivado como caché (spec 011a). Nunca requisitos, email, país ni nombre |
+| Valoraciones | Neon | Tabla `developer_ratings` (spec 020). El nombre del cliente no se guarda: se abrevia en servidor al leer desde `users` |
 
 ---
 
@@ -102,7 +108,9 @@ src/
     users/       -> usuario interno + perfil del desarrollador (servicios, schemas, tipos)
     projects/    -> proyectos y su ciclo de vida (specs 005-006)
     proposals/   -> propuestas y selección de propuesta (specs 007-008)
-    payments/    -> intentos de pago, eventos procesados, transferencia (specs 009-011)
+    payments/    -> intentos de pago, eventos procesados, cuentas conectadas, transferencia (specs 009-011)
+    profile/     -> edición y vista pública del perfil del desarrollador, privacidad del correo de contacto (spec 019)
+    ratings/     -> valoraciones del cliente al desarrollador contratado (spec 020)
   lib/
     db/          -> cliente Drizzle y schema (ubicación final: spec 003, D7)
   app/
@@ -118,6 +126,8 @@ Dependencias permitidas (sin ciclos):
 | `projects` | `users`, `auth` |
 | `proposals` | `projects`, `users`, `auth` |
 | `payments` | `projects`, `proposals`, `users`, `auth` |
+| `profile` | `users`, `projects`, `proposals`, `auth` (nadie depende de `profile` salvo `src/app`) |
+| `ratings` | `projects`, `proposals`, `users`, `auth` (lectura de sus tablas Drizzle); más una dependencia de **solo tipo** hacia `profile` (`DeveloperRatingSummary`), sin ciclo porque `profile` no importa `ratings` (spec 020) |
 
 Reglas:
 
@@ -126,12 +136,13 @@ Reglas:
   - Lectura: `projects` conserva la lectura de las tablas Drizzle `proposals` y `payments` (no sus servicios) para contar propuestas (D3) y comprobar intentos de pago (D2).
   - UI (spec 007 D-H): `projects/components/proposal-cta.tsx` importa `DeveloperProposalSection` de `proposals/components` (punto de extensión reservado por la spec 006). Es un import de UI `projects` -> `proposals`.
   - `proposals` nunca importa `project.service`; solo las tablas de `projects`.
-  - Pagos (spec 009): `payments` escribe únicamente en `payment_attempts` (y en 010 en `processed_payment_events`) y solo lee las tablas Drizzle de `projects`, `proposals` y `users`; no importa sus servicios. El cliente de Stripe es el singleton `src/lib/stripe.ts` (solo servidor, rechaza claves live) y la lógica de negocio solo lo importa desde `@/lib/stripe`.
+  - Pagos (spec 009): `payments` escribe únicamente en `payment_attempts` y `processed_payment_events` (esta última desde 010) y solo lee las tablas Drizzle de `projects`, `proposals` y `users`; no importa sus servicios. El cliente de Stripe es el singleton `src/lib/stripe.ts` (solo servidor, rechaza claves live) y la lógica de negocio solo lo importa desde `@/lib/stripe`.
+- Cuentas conectadas (spec 011a): `payments` escribe además `connected_accounts`. Solo lee `users` para el usuario actual y la cuenta se resuelve siempre por la sesión, nunca por un id del cliente.
 - Selección (spec 008): `proposals/services/proposal-selection.service.ts` escribe en `projects` solo mediante `projects/services/project-transitions.ts` (hoja que recibe el `tx`, no importa `db`, `project.service` ni nada de `proposals`); `projects` sigue sin importar servicios de `proposals`.
 - La selección de propuesta es una operación transaccional que escribe en `proposals` y `projects`. Vive en `proposals` (servicio de selección) y usa una función de transición expuesta por `projects` (detalle en spec 008).
-- La transición `proposal_selected -> contracted` la ejecuta el servicio de `payments` llamando a la función de transición de `projects`, nunca por SQL directo desde otro módulo.
+- La transición `proposal_selected -> contracted` la ejecuta el servicio de `payments` llamando a la hoja `markContracted` de `projects/services/project-transitions.ts` (spec 010), nunca por SQL directo desde otro módulo.
 - `src/app` es solo routing. Los clientes de Clerk, Stripe y Supabase son singletons mínimos en `src/lib`; la lógica de negocio vive en los módulos.
-- El módulo se llama `users` (no `profile`/`accounts`) para agrupar usuario y perfil de desarrollador (D4).
+- El módulo `users` agrupa el usuario y la tabla `developer_profiles` (D4); la lógica del perfil (servicios, action, schemas y componentes) vive en el módulo `profile` (spec 019, D14). `profile` lee las tablas Drizzle de `proposals` y `projects` (regla `accepted_client` del correo de contacto), sin importar sus servicios. Excepción acotada: `profile` escribe en `developer_profiles` solo con `INSERT ... ON CONFLICT (user_id) DO UPDATE` y el `user_id` sale siempre de la sesión. `users` no cambia de dependencias.
 
 ---
 
@@ -141,7 +152,7 @@ Resumen. El detalle (transiciones, disparadores, condiciones, diagramas y casos 
 
 ### 5.1 Proyecto (`project.status`)
 
-`draft`, `published`, `proposal_selected`, `contracted`, `closed` (terminal). Solo `published` admite propuestas. `contracted` solo se alcanza tras un webhook verificado que deja el pago en `completed_test`.
+`draft`, `published`, `proposal_selected`, `contracted`, `closed` (terminal). Solo `published` admite propuestas. `contracted` solo se alcanza tras un webhook verificado (o una reconciliación autenticada del servidor, 010 D-F) que deja el pago en `completed_test`.
 
 ### 5.2 Propuesta (`proposal.status`)
 
@@ -149,11 +160,15 @@ Resumen. El detalle (transiciones, disparadores, condiciones, diagramas y casos 
 
 ### 5.3 Intento de pago (`paymentAttempt.status`)
 
-`pending`, `completed_test`, `failed`, `canceled`. Los tres últimos son terminales; un reintento crea un intento nuevo. La ausencia de intento equivale a "No iniciado" (no se almacena). Solo un webhook verificado cambia el estado.
+`pending`, `completed_test`, `failed`, `canceled`. Los tres últimos son terminales; un reintento crea un intento nuevo. La ausencia de intento equivale a "No iniciado" (no se almacena). Solo un webhook verificado o una lectura autenticada del servidor (§7) cambia el estado.
 
 ### 5.4 Transferencia (`transferStatus`)
 
 `not_applicable`, `pending_implementation`, `simulated`. Independiente del pago (I3); hasta la spec 011 se deriva del pago y no se almacena. Nunca se muestra como dinero recibido.
+
+### 5.5 Cuenta conectada (`connectedAccount.status`)
+
+`not_started`, `pending`, `active`, `restricted`. Es una caché derivada de Stripe (spec 011a): cualquier estado puede pasar a cualquier otro al releer la cuenta. `active` significa que la capacidad `transfers` está activa; no mueve dinero por sí sola. La ausencia de fila equivale a "Sin configurar". Derivación y casos límite en `state-machines.md §6`.
 
 ---
 
@@ -170,6 +185,10 @@ Matriz de alto nivel derivada de `BRIEF §4`. El enforcement (guards, middleware
 | Seleccionar propuesta | no | solo en proyecto propio | no | no |
 | Iniciar pago de prueba | no | solo en proyecto propio con propuesta seleccionada | no | no |
 | Ver estado de pago | no | proyectos propios | su propuesta ganadora | sí (lectura) |
+| Configurar cobros de prueba (cuenta conectada propia; acción `payout.manage`) | no | no | sí, solo la propia | no |
+| Editar perfil propio (acción `profile.edit`) | no | no | sí, solo el propio | no |
+| Valorar al desarrollador (acción `rating.create`) | no | solo cliente propietario de un proyecto contratado (una vez; editable 14 días) | no | no |
+| Ver perfil público de un desarrollador | sí | sí | sí | sí (el correo de contacto solo lo ve un cliente según la visibilidad elegida: por defecto, uno con propuesta aceptada del desarrollador; nunca visitante, desarrollador ni admin) |
 
 Notas:
 
@@ -185,12 +204,16 @@ Notas:
 - **Importe desde el servidor.** Importe y moneda se toman de la propuesta ganadora guardada en servidor, nunca del navegador (I2).
 - **Verificación de firma.** Todo evento de Stripe se acepta solo con firma válida verificada en servidor.
 - **El navegador no es fuente de verdad.** Las páginas de retorno (éxito o cancelación) solo informan; nunca cambian el estado del pago ni del proyecto. Si el navegador vuelve antes del webhook, la UI muestra "verificando" y no afirma pago completado.
-- **Solo el webhook transiciona.** `pending -> completed_test|failed|canceled` y `proposal_selected -> contracted` dependen de un webhook verificado (I4).
+- **Solo un evento verificado o una lectura autenticada del servidor transiciona.** `pending -> completed_test|failed|canceled` y `proposal_selected -> contracted` dependen de un webhook verificado por firma o de una lectura autenticada de la sesión en la API de Stripe hecha por el servidor (botón "Actualizar estado", spec 010 D-F, que aplica el mismo núcleo de reglas); el navegador nunca aporta estado (I4).
+- **Eventos manejados (spec 010).** Solo `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded` y `checkout.session.async_payment_failed`. `payment_intent.payment_failed` no se maneja (D-B): un rechazo de tarjeta no termina la sesión de Checkout, por lo que `failed` solo se alcanza con el fallo definitivo de un método asíncrono.
 - **Idempotencia.** Cada `event.id` se registra en `processedPaymentEvent` (único); un evento repetido no cambia estado.
 - **Sin regresiones.** Un evento tardío o fuera de orden nunca revierte `completed_test` ni reabre un estado terminal.
 - **Pago y transferencia separados** (I3). Sin comisiones.
 - **Sin datos sensibles.** Nunca se guardan datos de tarjeta; solo identificadores externos únicos y estado derivado.
 - La ruta de webhook (`src/app/api/webhooks/stripe/route.ts`) solo hace routing y delega a `modules/payments`. Contratos detallados en las specs 009-010; Stripe Connect en la 011.
+- **Connect solo en modo de prueba (spec 011a).** Las cuentas conectadas usan el mismo cliente `getStripe()`, que rechaza claves live. Requiere activar Connect en el Dashboard de Stripe en modo de prueba (precondición manual).
+- **Separate charges and transfers.** El Checkout sigue cobrando en la cuenta de plataforma; la transferencia al desarrollador es posterior e independiente (011b).
+- **Sincronización por relectura.** El estado de la cuenta conectada se actualiza leyendo la cuenta servidor a servidor al volver del onboarding y con el botón "Actualizar estado". El webhook `account.updated` queda diferido; el endpoint de 010 no recibe eventos de cuentas conectadas.
 
 ---
 
@@ -199,7 +222,7 @@ Notas:
 ### Confirmadas
 
 - Stack de `BRIEF §9`: Clerk, Drizzle ORM + Neon Postgres, Supabase Storage, Stripe, Zod.
-- Stripe Connect en test mode como último paso (spec 011); mientras tanto la transferencia es "pendiente de implementación".
+- Stripe Connect en test mode como último paso (spec 011); mientras tanto la transferencia es "pendiente de implementación". La spec 011 se parte en 011a (cuenta conectada y onboarding del desarrollador, sin mover dinero) y 011b (registro y ejecución de la transferencia).
 - Prefijo `NNN-slug.md` para specs en `docs/specs/`.
 - Esta arquitectura se documenta en `docs/architecture/` y se referencia desde `SETUP.md §4`.
 
@@ -208,9 +231,9 @@ Notas:
 | Id | Decisión | Spec destino |
 |---|---|---|
 | D1 | Un solo rol por usuario (`client` \| `developer` \| `admin`), elegido al registrarse y no modificable en el MVP; fuente de verdad `user.role` en Neon, con caché opcional en metadata de Clerk | 003, 004 |
-| D2 | `proposal_selected -> closed` permitido mientras no exista pago `completed_test`; con intento `pending` hay que cancelarlo o esperar su resolución. No se reabre la selección en el MVP | 010, 012 |
+| D2 | `proposal_selected -> closed` permitido mientras no exista pago `completed_test`; con intento `pending` hay que cancelarlo o esperar su resolución. No se reabre la selección en el MVP. Cierre del lado servidor en 010: el evento `checkout.session.expired` y la reconciliación "Actualizar estado" cancelan el intento `pending`; la cancelación explícita del cliente queda para 012 | 010, 012 |
 | D3 | `published -> draft` solo si el proyecto no tiene propuestas | 005 |
-| D4 | Perfil del desarrollador dentro del módulo `users` (sin módulo `profile`) | 003 |
+| D4 | Tabla del perfil del desarrollador dentro del módulo `users`; la lógica de perfil vive en el módulo `profile` (ajustada por 019 D14) | 003, 019 |
 | D5 | Una propuesta por desarrollador por proyecto (unicidad); editable mientras `pending`; no se permite reenviar tras retirar | 003, 007 |
 | D6 | No se crea `simulatedTransfer` hasta la spec 011; antes `transferStatus` se deriva del pago | 011 |
 | D7 | Ubicación del cliente Drizzle y schema: se reserva `src/lib/db`; decisión final en la spec 003 | 003 |
@@ -218,5 +241,39 @@ Notas:
 | D9 | Solo USD en el MVP, moneda almacenada con el importe; decimales/centavos se deciden en la spec 003 | 003 |
 | D10 | Convención de variables de entorno y `.env.example`: **resuelta para las variables de Stripe en la spec 009** (nombres `UPPER_SNAKE`, secretos nunca con `NEXT_PUBLIC_`, `.env.example` solo con nombres agrupados por proveedor, `.env.local` nunca se commitea). `STRIPE_SECRET_KEY` y `APP_URL` son solo de servidor; `STRIPE_WEBHOOK_SECRET` llega con la spec 010. El valor por entorno queda para la 017 | 009, 017 |
 | D11 | Tecnologías de un proyecto como **catálogo cerrado** en BD (`technologies`) con relación N:M (`project_technologies`), en lugar de texto libre; se identifican por `slug` en formularios y URL, mínimo 1 y máximo 10 por proyecto. «Otros» es solo una etiqueta (sin texto asociado). El alta de tags se hace por migración. `developer_profiles.technologies` queda fuera de alcance (texto libre) | 009c |
+
+### D12-D14 (spec 011a, aprobadas)
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| D12 | Modelo Separate charges and transfers con disparo automático de la transferencia al confirmarse el pago (`pending -> completed_test`) y por el importe completo de la propuesta, sin comisión. El Checkout de 009 no cambia; `transfer_group` va en 011b | 011b |
+| D13 | Cuenta conectada con Accounts v1 usando `controller` (equivalente a Express, sin el `type` obsoleto) y onboarding alojado por Stripe con Account Links v1 (`account_onboarding`). Cuentas `US` en USD (país **a verificar**). Alternativa descartada: Accounts v2 | 011a |
+| D14 | Estado sincronizado por relectura servidor a servidor (return, refresh y botón "Actualizar estado"); el webhook `account.updated` y `stripe listen --forward-connect-to` quedan diferidos | 011a |
+
+### D14-D15 y perfil (spec 019, aprobadas)
+
+Los ids D14 y D15 son los de la spec 019; no sustituyen a los D14 de 011a.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 019-D14 | Módulo nuevo `profile` (dependencias: `users`, `projects`, `proposals`, `auth`) para la lógica del perfil; la tabla se queda en `users/schema`. Evita que `users` importe `auth`, `proposals` o `projects` (prohibido por §4 y causaría ciclos) | 019 |
+| 019-D15 | "Cobros de prueba" pasa a "Mi cuenta": el header del desarrollador muestra "Proyectos", "Mis propuestas" y "Mi cuenta". Esto **reemplaza el enlace de header de 011a D-A**; las rutas `/dashboard/payouts` y sus return/refresh se conservan, con un enlace "Volver a Mi cuenta" | 019 |
+| 019-perfil | Avatar por defecto con iniciales (sin subida de foto); tabla `developer_profiles` extendida (no se crea otra); correo de contacto propio con visibilidad `accepted_client` por defecto, resuelta en servidor; biografía en texto plano; perfil público abierto a visitantes anónimos; nombre visible gestionado por Clerk | 019 |
+
+### Valoraciones (spec 020, aprobadas)
+
+Los ids son los de la spec 020; no sustituyen a los D-x de otras specs.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 020-D-A | Se puede valorar con proyecto contratado (`contracted_at` no nulo; incluye `closed` tras contratar). Ya implica pago `completed_test` | 020 |
+| 020-D-B | `unique(project_id)` y FK compuesta `(proposal_id, project_id)`; no se guarda `developer_id` ni `client_id` | 020 |
+| 020-D-C/D/E | Sin borrado, moderación, reportes, respuesta del desarrollador ni notificaciones | 020 |
+| 020-D-F | Promedio calculado en cada lectura y redondeado a 1 decimal en SQL; `null` sin valoraciones | 020 |
+| 020-D-G | Edición durante 14 días desde la creación (336 h), decidida en servidor con reloj inyectable; editar no extiende la ventana | 020 |
+| 020-D-H | Nombre del cliente abreviado en servidor ("Maria G."); si no es seguro, "Cliente" | 020 |
+| 020-D-I | Columnas `timestamptz`; días restantes calculados en servidor; fechas de la lista en UTC | 020 |
+| 020-D-J | Cliente borrado o anonimizado: la valoración se conserva y se muestra como "Cliente" | 020 |
+| 020-D-K | Textos de estado, comentario en texto plano, 20 valoraciones sin paginar, perfil visible a anónimos y enlace "Ver valoraciones recibidas" a `/developers/{id}#valoraciones` | 020 |
 
 Cualquier cambio de arquitectura requiere una spec aprobada.

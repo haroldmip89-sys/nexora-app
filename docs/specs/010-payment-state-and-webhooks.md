@@ -1,6 +1,6 @@
 # Estado del pago y webhooks de Stripe: confirmación del pago de prueba (Fase 3 de Nexora, parte 2)
 
-Estado: borrador. Pendiente de aprobación humana explícita (incluidas las decisiones D-A a D-L de la sección 14). No lanzar `developer` hasta que un humano la apruebe. Cualquier edición posterior a la aprobación devuelve la spec a `borrador`.
+Estado: done. Aprobada por el humano con las recomendaciones por defecto en las decisiones D-A a D-L y las preguntas abiertas P1–P5. Cualquier edición posterior a la aprobación devuelve la spec a `borrador`.
 
 Sigue la plantilla mínima de 14 puntos de `docs/SDD-PLAN.md §10` (mismo orden y mismas secciones que la spec 009; la sección 13 agrupa tareas y archivos como en 009). Requisitos de origen: `docs/SDD-PLAN.md §6` (Spec 010), `docs/BRIEF.md §6.4`, `§6.5`, `§7` (reglas 9 a 15), `§9`. Dominio: `docs/architecture/system-design.md §2` (entidades `paymentAttempt` y `processedPaymentEvent`, invariantes I1 a I5), `§3` (propiedad de datos), `§4` (módulos; regla "Pagos (spec 009)"; "la transición `proposal_selected -> contracted` la ejecuta el servicio de `payments` llamando a la función de transición de `projects`"), `§7` (pagos y webhooks), `§8` (D2, D10); `docs/architecture/state-machines.md §1` (`proposal_selected -> contracted` solo tras webhook verificado), `§3` (intento de pago), `§4` (transferencia independiente), `§5` (casos límite). Base: spec 003 (restricciones de `payment_attempts` y `processed_payment_events`), 004 (patrón del webhook de Clerk, `/api/webhooks/stripe` ya declarada pública), 005 (`closeProject`, `PAYMENT_IN_PROGRESS`), 008 (patrón de transacción y transición hoja), 009 (checkout y "Próximas fases"). Diseño visual de referencia (no accesible, no contractual): progreso de 4 pasos con el paso 3 "Confirmado por el servidor", estados pendiente/completado/cancelado/fallido y la leyenda de que volver desde Stripe no confirma el pago.
 
@@ -504,7 +504,7 @@ Máximo 5; cada archivo pertenece a una sola tarea. Archivos de otras specs: `pr
 
 ## 14. Decisiones pendientes (con recomendación) y estado de aprobación
 
-Estado de aprobación: **pendiente** (spec en `borrador`; solo un humano la aprueba).
+Estado de aprobación: **aprobada** por el humano con las recomendaciones por defecto (D-A..D-L, P1–P5).
 
 ### 14.1 Pasos manuales del humano (el agente nunca maneja secretos)
 

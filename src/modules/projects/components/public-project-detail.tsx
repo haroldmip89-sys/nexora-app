@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { cn } from "@/lib/utils";
 import {
   PUBLIC_DATE_FORMATTER,
@@ -70,9 +71,15 @@ export function PublicProjectDetail({ project, viewer }: Props) {
             <h2 id="project-description" className="text-lg font-semibold text-[#202522]">
               Descripción
             </h2>
-            <p className="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-[#202522]">
-              {project.description}
-            </p>
+            <div className="mt-2 overflow-hidden rounded-[14px] border border-[#E3E8E3] bg-white">
+              <div className="flex items-center justify-between border-b border-[#E3E8E3] bg-[#F0F2EC] px-4 py-2">
+                <span className="text-xs font-medium text-[#535E56]">Markdown</span>
+              </div>
+              <MarkdownContent
+                source={project.description}
+                className="px-4 py-3 text-sm sm:px-5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              />
+            </div>
           </section>
 
           {project.technologies.length > 0 ? (

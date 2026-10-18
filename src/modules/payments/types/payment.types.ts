@@ -38,3 +38,28 @@ export type PaymentActionResult = {
   code: PaymentErrorCode | "NOT_FOUND" | "UNKNOWN";
   message: string;
 };
+
+export type AppliedReason = "completed" | "completed_project_not_selected" | "failed" | "canceled";
+
+export type IgnoredReason =
+  | "attempt_not_found"
+  | "reference_mismatch"
+  | "attempt_not_pending"
+  | "payment_not_paid"
+  | "amount_mismatch"
+  | "currency_mismatch"
+  | "missing_payment_intent";
+
+/** What `handleStripeEvent` did with a verified event (spec 010 RF4). Every variant maps to a 2xx. */
+export type StripeEventOutcome =
+  | { result: "applied"; reason: AppliedReason }
+  | { result: "ignored"; reason: IgnoredReason }
+  | { result: "duplicate" }
+  | { result: "unhandled" }
+  | { result: "discarded"; reason: "livemode" };
+
+export type ReconcileResult = { outcome: "completed" | "canceled" | "unchanged" | "none" };
+
+export type RefreshActionResult =
+  | { ok: true; outcome: ReconcileResult["outcome"] }
+  | PaymentActionResult;

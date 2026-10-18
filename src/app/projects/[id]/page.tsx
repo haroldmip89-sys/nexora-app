@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { summarizeMarkdown } from "@/lib/markdown";
 import { PublicProjectDetail } from "@/modules/projects/components/public-project-detail";
 import { getPublicProject } from "@/modules/projects/services/public-catalog.service";
 import { resolvePublicViewer } from "@/modules/projects/services/public-viewer.service";
@@ -15,11 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!project) return { title: "Proyecto no encontrado | Nexora" };
 
   const title = `${project.title} | Nexora`;
-  const collapsed = project.description.replace(/\s+/g, " ").trim();
-  const description =
-    collapsed.length > DESCRIPTION_LENGTH
-      ? `${collapsed.slice(0, DESCRIPTION_LENGTH - 1).trimEnd()}…`
-      : collapsed;
+  const description = summarizeMarkdown(project.description, DESCRIPTION_LENGTH);
 
   return { title, description, openGraph: { title, description, type: "website" } };
 }

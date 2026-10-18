@@ -140,8 +140,8 @@ La arquitectura y el dominio del producto viven en `docs/architecture/`. Lee **s
 | Entidades, relaciones e invariantes | `docs/architecture/system-design.md §2` |
 | Propiedad de datos (Neon / Clerk / Stripe / Supabase Storage) | `docs/architecture/system-design.md §3` |
 | Módulos y dependencias permitidas | `docs/architecture/system-design.md §4` |
-| Estados y transiciones (resumen) | `docs/architecture/system-design.md §5` |
-| Estados y transiciones (detalle, casos límite) | `docs/architecture/state-machines.md §1` (proyecto), `§2` (propuesta), `§3` (intento de pago), `§4` (transferencia), `§5` (casos límite) |
+| Estados y transiciones (resumen) | `docs/architecture/system-design.md §5` (cuenta conectada: `§5.5`) |
+| Estados y transiciones (detalle, casos límite) | `docs/architecture/state-machines.md §1` (proyecto), `§2` (propuesta), `§3` (intento de pago), `§4` (transferencia), `§5` (casos límite), `§6` (cuenta conectada) |
 | Auth, roles y permisos | `docs/architecture/system-design.md §6` |
 | Pagos y webhooks | `docs/architecture/system-design.md §7` |
 | Decisiones registradas | `docs/architecture/system-design.md §8` |

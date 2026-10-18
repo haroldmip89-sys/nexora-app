@@ -195,6 +195,22 @@ export function ProjectList({ data, query }: Props) {
                         Continuar al pago de prueba
                       </Link>
                     ) : null}
+                    {project.status === "contracted" ? (
+                      <Link
+                        href={`/projects/${project.id}/payment`}
+                        className={cn(buttonVariants({ variant: "outline" }), "h-9 px-3", FOCUS)}
+                      >
+                        Ver pago de prueba
+                      </Link>
+                    ) : null}
+                    {project.status === "contracted" ? (
+                      <Link
+                        href={`/projects/${project.id}/rate`}
+                        className={cn(buttonVariants({ variant: "outline" }), "h-9 px-3", FOCUS)}
+                      >
+                        Valorar al desarrollador
+                      </Link>
+                    ) : null}
                     <ProjectLifecycleActions
                       projectId={project.id}
                       status={project.status}

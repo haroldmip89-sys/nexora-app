@@ -8,10 +8,10 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/shared/form-field";
 import { TagPicker } from "@/components/shared/tag-picker";
 import { centsToUsd } from "@/lib/money";
+import { MarkdownEditor } from "@/modules/projects/components/markdown-editor";
 import {
   createProjectAction,
   updateProjectAction,
@@ -169,18 +169,15 @@ export function ProjectForm({ project, technologies }: Props) {
         error={errors.description}
       >
         {({ id, describedBy, invalid }) => (
-          <Textarea
+          <MarkdownEditor
             id={id}
             name="description"
             defaultValue={values.description}
-            required
             minLength={L.description.min}
             maxLength={L.description.max}
-            rows={7}
             readOnly={fullyReadOnly}
-            aria-invalid={invalid}
-            aria-describedby={describedBy}
-            className="rounded-[10px] border-[#E3E8E3] bg-white text-[#202522]"
+            invalid={invalid}
+            describedBy={describedBy}
           />
         )}
       </FormField>

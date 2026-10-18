@@ -29,6 +29,27 @@
       "when": 1792286052589,
       "tag": "0003_nappy_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792303435842,
+      "tag": "0004_connected_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792307396646,
+      "tag": "0005_developer_profile_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792308685670,
+      "tag": "0006_developer_ratings",
+      "breakpoints": true
     }
   ]
 }

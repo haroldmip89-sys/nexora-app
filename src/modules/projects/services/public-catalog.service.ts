@@ -3,6 +3,7 @@ import { and, asc, desc, eq, ilike, notInArray, or, sql, type SQL } from "drizzl
 import { cache } from "react";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
+import { summarizeMarkdown } from "@/lib/markdown";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { PROJECT_CATEGORIES } from "@/modules/projects/schemas/project.schema";
 import {
@@ -22,9 +23,6 @@ const SUMMARY_LENGTH = 240;
 
 /** Single visibility predicate shared by list, count and detail. */
 const isPublished = eq(projects.status, "published");
-
-// Columns are written qualified on purpose (see project.service.ts).
-const summarySql = sql<string>`left("projects"."description", ${sql.raw(String(SUMMARY_LENGTH))})`;
 
 const technologyNamesSql = sql<string[]>`coalesce(array(select t."name" from "project_technologies" pt join "technologies" t on t."id" = pt."technology_id" where pt."project_id" = "projects"."id" order by t."sort_order", t."name"), '{}')`;
 
@@ -86,12 +84,14 @@ export async function listPublicProjects(query: PublicCatalogQuery): Promise<Pub
     .from(projects)
     .where(where);
 
-  const items: PublicProjectSummary[] = await db
+  // The summary is built from the full description (max 5000 chars): cutting the
+  // Markdown in SQL could split a syntax token and leak symbols into the plain text.
+  const rows = await db
     .select({
       id: projects.id,
       title: projects.title,
       category: projects.category,
-      summary: summarySql,
+      description: projects.description,
       budgetMinCents: projects.budgetMinCents,
       budgetMaxCents: projects.budgetMaxCents,
       timelineWeeks: projects.timelineWeeks,
@@ -103,6 +103,11 @@ export async function listPublicProjects(query: PublicCatalogQuery): Promise<Pub
     .orderBy(...buildOrder(query.sort))
     .limit(PUBLIC_CATALOG_PAGE_SIZE)
     .offset((query.page - 1) * PUBLIC_CATALOG_PAGE_SIZE);
+
+  const items: PublicProjectSummary[] = rows.map(({ description, ...rest }) => ({
+    ...rest,
+    summary: summarizeMarkdown(description, SUMMARY_LENGTH),
+  }));
 
   return {
     items,

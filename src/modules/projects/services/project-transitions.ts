@@ -18,3 +18,19 @@ export async function markProposalSelected(
     .returning({ id: projects.id });
   return rows.length === 1;
 }
+
+/**
+ * Leaf transition: moves `proposal_selected -> contracted` and stamps `contracted_at`;
+ * returns true only if that row was updated. Same executor rules as `markProposalSelected`.
+ */
+export async function markContracted(
+  executor: Pick<PgDatabase<PgQueryResultHKT>, "update">,
+  projectId: string,
+): Promise<boolean> {
+  const rows = await executor
+    .update(projects)
+    .set({ status: "contracted", contractedAt: new Date() })
+    .where(and(eq(projects.id, projectId), eq(projects.status, "proposal_selected")))
+    .returning({ id: projects.id });
+  return rows.length === 1;
+}

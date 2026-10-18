@@ -130,7 +130,10 @@ describe("anonymizeByClerkUserId", () => {
 
 describe("module surface", () => {
   it("exports no function that changes the role", () => {
-    expect(Object.keys(service).sort()).toEqual(
+    const functions = Object.entries(service)
+      .filter(([, value]) => typeof value === "function")
+      .map(([key]) => key);
+    expect(functions.sort()).toEqual(
       ["anonymizeByClerkUserId", "findByClerkUserId", "registerUser", "syncProfile"].sort(),
     );
   });

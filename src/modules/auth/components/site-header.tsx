@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SiteNav } from "@/components/shared/site-nav";
-import { getDashboardLink } from "@/modules/auth/services/dashboard-link";
+import { getAccountLink, getDashboardLink } from "@/modules/auth/services/dashboard-link";
 import type { NavLinkItem } from "@/modules/auth/services/dashboard-link";
 import { resolveNavViewer } from "@/modules/auth/services/nav-viewer.service";
 
@@ -10,6 +10,8 @@ export async function SiteHeader() {
   const dashboard = getDashboardLink(viewer);
   const links: NavLinkItem[] = [{ href: "/projects", label: "Proyectos" }];
   if (dashboard) links.push(dashboard);
+  const account = getAccountLink(viewer);
+  if (account) links.push(account);
 
   return <SiteNav links={links} signedIn={viewer.kind !== "visitor"} />;
 }

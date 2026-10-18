@@ -76,3 +76,69 @@ export function getAppUrl(): string {
   }
   return url.origin;
 }
+
+/** Max age (seconds) of a webhook signature timestamp; same as the SDK default, never 0. */
+export const WEBHOOK_TOLERANCE_SECONDS = 300;
+
+/** Webhook signing secret, read on every call (no client is created). Never echoes the value. */
+export function getWebhookSecret(): string {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!secret) {
+    throw new StripeConfigError(
+      "STRIPE_WEBHOOK_SECRET is not defined. Set it in .env.local (the whsec_... printed by `stripe listen`).",
+    );
+  }
+  if (!secret.startsWith("whsec_")) {
+    throw new StripeConfigError(
+      "STRIPE_WEBHOOK_SECRET has an unexpected format; expected a Stripe webhook signing secret (whsec_...).",
+    );
+  }
+  return secret;
+}
+
+/**
+ * Verifies the signature over the raw body and returns the event. Uses the static
+ * `Stripe.webhooks`, so it needs no STRIPE_SECRET_KEY. A missing secret throws
+ * `StripeConfigError`; any other failure (signature, timestamp, JSON) is a plain error.
+ */
+export function constructStripeEvent(rawBody: string, signature: string | null): Stripe.Event {
+  const secret = getWebhookSecret();
+  if (!signature) {
+    throw new Error("Missing Stripe-Signature header");
+  }
+  return Stripe.webhooks.constructEvent(rawBody, signature, secret, WEBHOOK_TOLERANCE_SECONDS);
+}
+
+const DEFINITIVE_REJECTION_TYPES = new Set([
+  "StripeInvalidRequestError",
+  "StripeAuthenticationError",
+  "StripePermissionError",
+]);
+
+/** Stripe certainly did not perform the operation (spec 009 RF4 classification). Everything else is ambiguous. */
+export function isDefinitiveStripeRejection(error: unknown): boolean {
+  const type = (error as { type?: unknown } | null | undefined)?.type;
+  return typeof type === "string" && DEFINITIVE_REJECTION_TYPES.has(type);
+}
+
+/** Only safe fields for logs: never messages, keys, URLs, account ids or emails. */
+export function stripeErrorLogFields(error: unknown): {
+  type: unknown;
+  code: unknown;
+  statusCode: unknown;
+  requestId: unknown;
+} {
+  const e = (error ?? {}) as Record<string, unknown>;
+  return { type: e.type, code: e.code, statusCode: e.statusCode, requestId: e.requestId };
+}
+
+/** true only for https URLs whose host ends in ".stripe.com" (Checkout, Connect onboarding). */
+export function isStripeHostedUrl(value: string | null | undefined): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname.endsWith(".stripe.com");
+  } catch {
+    return false;
+  }
+}
