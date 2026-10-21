@@ -80,7 +80,7 @@ describe("saveDeveloperProfileAction", () => {
   });
 
   it("returns VALIDATION with fieldErrors and does not call the service", async () => {
-    const result = await saveDeveloperProfileAction({ ...validInput, headline: "", bio: "x".repeat(1001) });
+    const result = await saveDeveloperProfileAction({ ...validInput, headline: "", bio: "x".repeat(5001) });
     expect(result).toMatchObject({ ok: false, code: "VALIDATION" });
     if (result.ok === false && result.code === "VALIDATION") {
       expect(result.fieldErrors.headline).toBeTruthy();

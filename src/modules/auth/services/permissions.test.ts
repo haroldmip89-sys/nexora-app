@@ -21,6 +21,7 @@ const matrix: Record<Action, [boolean, boolean, boolean, boolean]> = {
   "payment.start": [false, true, false, false],
   "payment.read": [false, true, true, true],
   "payout.manage": [false, false, true, false],
+  "transfer.retry": [false, false, true, false],
   "profile.edit": [false, false, true, false],
   "rating.create": [false, true, false, false],
 };

@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { DeveloperTransfersList } from "@/modules/payments/components/developer-transfers-list";
 import { RefreshConnectedAccountButton } from "@/modules/payments/components/refresh-connected-account-button";
 import { StartPayoutOnboardingButton } from "@/modules/payments/components/start-payout-onboarding-button";
 import {
   CONNECTED_ACCOUNT_STATUS_LABELS,
   type ConnectedAccountOverview,
 } from "@/modules/payments/types/connected-account.types";
+import type { DeveloperTransferItem } from "@/modules/payments/types/developer-transfer.types";
 
 const dateFormatter = new Intl.DateTimeFormat("es", { dateStyle: "medium", timeStyle: "short" });
 
@@ -55,9 +57,13 @@ function contentFor({ status, hasStripeAccount }: ConnectedAccountOverview): Sta
   }
 }
 
-type Props = { overview: ConnectedAccountOverview; notice?: Notice };
+type Props = {
+  overview: ConnectedAccountOverview;
+  transfers: DeveloperTransferItem[];
+  notice?: Notice;
+};
 
-export function PayoutsPageView({ overview, notice }: Props) {
+export function PayoutsPageView({ overview, transfers, notice }: Props) {
   const content = contentFor(overview);
 
   return (
@@ -119,6 +125,8 @@ export function PayoutsPageView({ overview, notice }: Props) {
           </div>
         ) : null}
       </section>
+
+      <DeveloperTransfersList transfers={transfers} />
     </main>
   );
 }

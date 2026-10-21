@@ -293,7 +293,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p id={`${fid("bio")}-hint`} className={HINT}>
-              Texto plano. Los saltos de línea se conservan.
+              Admite Markdown básico: **negrita**, listas, enlaces, títulos.
             </p>
             <p
               id={`${fid("bio")}-count`}

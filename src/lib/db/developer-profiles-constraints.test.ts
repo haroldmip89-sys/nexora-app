@@ -75,7 +75,7 @@ describe("developer_profiles constraints", () => {
     await expect(
       insertProfile(await createUser(), {
         headline: "h".repeat(80),
-        bio: "b".repeat(1000),
+        bio: "b".repeat(5000),
         location: "l".repeat(80),
         contact_email: "e".repeat(254),
         links: links(5),
@@ -87,8 +87,8 @@ describe("developer_profiles constraints", () => {
     await expect(insertProfile(await createUser(), { headline: "h".repeat(81) })).rejects.toThrow();
   });
 
-  it("rejects a bio over 1000 characters", async () => {
-    await expect(insertProfile(await createUser(), { bio: "b".repeat(1001) })).rejects.toThrow();
+  it("rejects a bio over 5000 characters", async () => {
+    await expect(insertProfile(await createUser(), { bio: "b".repeat(5001) })).rejects.toThrow();
   });
 
   it("rejects a location over 80 characters", async () => {

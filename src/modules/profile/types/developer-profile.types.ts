@@ -11,7 +11,7 @@ export type ProfileViewer = { id: string; role: Role };
 export const PROFILE_LIMITS = {
   headline: { min: 1, max: 80 },
   location: { max: 80 },
-  bio: { max: 1000 },
+  bio: { max: 5000 },
   links: { maxItems: 5, urlMax: 300 },
   contactEmail: { max: 254 },
 } as const;

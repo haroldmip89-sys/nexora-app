@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
   startOnboarding: vi.fn(),
   syncConnectedAccount: vi.fn(),
+  retryDeveloperTransfers: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((url: string) => {
     throw new Error(`NEXT_REDIRECT:${url}`);
@@ -23,6 +24,9 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 vi.mock("@/modules/payments/services/connected-account.service", () => ({
   startOnboarding: mocks.startOnboarding,
   syncConnectedAccount: mocks.syncConnectedAccount,
+}));
+vi.mock("@/modules/payments/services/developer-transfer.service", () => ({
+  retryDeveloperTransfers: mocks.retryDeveloperTransfers,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({
@@ -57,6 +61,7 @@ beforeEach(() => {
   mocks.requireRole.mockReset().mockResolvedValue(developer);
   mocks.startOnboarding.mockReset().mockResolvedValue({ onboardingUrl: ONBOARDING_URL });
   mocks.syncConnectedAccount.mockReset().mockResolvedValue({ status: "active" });
+  mocks.retryDeveloperTransfers.mockReset().mockResolvedValue({ attempted: 0, completed: 0, pending: 0, failed: 0 });
 });
 
 describe.each([
@@ -139,6 +144,24 @@ describe("refreshConnectedAccountAction", () => {
       expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/payouts");
     },
   );
+
+  it("retries only pending transfers when the status is active", async () => {
+    await refreshConnectedAccountAction();
+    expect(mocks.retryDeveloperTransfers).toHaveBeenCalledTimes(1);
+    expect(mocks.retryDeveloperTransfers).toHaveBeenCalledWith(developer);
+  });
+
+  it.each(["not_started", "pending", "restricted"])("does not retry when the status is %s", async (status) => {
+    mocks.syncConnectedAccount.mockResolvedValue({ status });
+    await refreshConnectedAccountAction();
+    expect(mocks.retryDeveloperTransfers).not.toHaveBeenCalled();
+  });
+
+  it("a failing retry does not change the result", async () => {
+    mocks.retryDeveloperTransfers.mockRejectedValue(new Error("boom"));
+    await expect(refreshConnectedAccountAction()).resolves.toEqual({ ok: true, status: "active" });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/payouts");
+  });
 
   it("never returns Stripe ids or URLs", async () => {
     const result = await refreshConnectedAccountAction();

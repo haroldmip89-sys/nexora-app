@@ -22,6 +22,7 @@ export type Action =
   | "payment.start"
   | "payment.read"
   | "payout.manage"
+  | "transfer.retry"
   | "profile.edit"
   | "rating.create";
 

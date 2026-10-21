@@ -44,7 +44,7 @@ describe("developerProfileInputSchema", () => {
   it.each([
     ["empty headline", { headline: "   " }],
     ["81-char headline", { headline: "a".repeat(81) }],
-    ["1001-char bio", { bio: "a".repeat(1001) }],
+    ["5001-char bio", { bio: "a".repeat(5001) }],
     ["81-char location", { location: "a".repeat(81) }],
     ["6 links", { links: Array.from({ length: 6 }, (_, i) => link(`https://site${i}.com`)) }],
     ["http url", { links: [link("http://example.com")] }],
@@ -72,7 +72,7 @@ describe("developerProfileInputSchema", () => {
   it("accepts exactly the limits", () => {
     const r = parse({
       headline: "a".repeat(80),
-      bio: "a".repeat(1000),
+      bio: "a".repeat(5000),
       location: "a".repeat(80),
       links: Array.from({ length: 5 }, (_, i) => link(`https://site${i}.com`)),
     });
@@ -84,7 +84,7 @@ describe("toDeveloperProfileFieldErrors", () => {
   it("returns one message per field and maps link errors to links", () => {
     const r = parse({
       headline: "",
-      bio: "a".repeat(1001),
+      bio: "a".repeat(5001),
       contactEmail: "nope",
       links: [link("http://a.com"), link("javascript:x")],
     });

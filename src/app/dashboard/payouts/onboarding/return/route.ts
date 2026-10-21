@@ -3,6 +3,7 @@ import { AuthError, handleAuthErrorForPage } from "@/modules/auth/services/auth-
 import { requireRole } from "@/modules/auth/services/current-user.service";
 import { ConnectedAccountError } from "@/modules/payments/services/connected-account-errors";
 import { syncConnectedAccount } from "@/modules/payments/services/connected-account.service";
+import { retryDeveloperTransfers } from "@/modules/payments/services/developer-transfer.service";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,14 @@ export async function GET(): Promise<never> {
   let target = "/dashboard/payouts?onboarding=returned";
   try {
     const actor = await requireRole("developer");
-    await syncConnectedAccount(actor);
+    const { status } = await syncConnectedAccount(actor);
+    if (status === "active") {
+      try {
+        await retryDeveloperTransfers(actor);
+      } catch {
+        // Auto-retry is best effort (spec 011b D-F): never changes the redirect.
+      }
+    }
   } catch (e) {
     unstable_rethrow(e);
     if (e instanceof AuthError) handleAuthErrorForPage(e);

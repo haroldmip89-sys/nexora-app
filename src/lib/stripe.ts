@@ -121,15 +121,38 @@ export function isDefinitiveStripeRejection(error: unknown): boolean {
   return typeof type === "string" && DEFINITIVE_REJECTION_TYPES.has(type);
 }
 
-/** Only safe fields for logs: never messages, keys, URLs, account ids or emails. */
+const MAX_LOG_MESSAGE_LENGTH = 300;
+
+/** Strips Stripe ids/keys, emails and URLs from a Stripe-generated message, then truncates it. */
+function sanitizeStripeMessage(message: string): string {
+  return message
+    .replace(/https?:\/\/\S+/gi, "[redacted]")
+    .replace(/\S+@\S+/g, "[redacted]")
+    .replace(
+      /\b(acct|cus|cs|pi|pm|ch|evt|sk|rk|pk|whsec|tr|po|ba|card)_[A-Za-z0-9_]+/gi,
+      "[redacted]",
+    )
+    .slice(0, MAX_LOG_MESSAGE_LENGTH);
+}
+
+/**
+ * Safe fields for logs: type, code, statusCode and requestId. Only for
+ * `StripeInvalidRequestError` (a message Stripe builds about the request shape) it also adds
+ * the sanitized `message`; other types never log their message.
+ */
 export function stripeErrorLogFields(error: unknown): {
   type: unknown;
   code: unknown;
   statusCode: unknown;
   requestId: unknown;
+  message?: string;
 } {
   const e = (error ?? {}) as Record<string, unknown>;
-  return { type: e.type, code: e.code, statusCode: e.statusCode, requestId: e.requestId };
+  const fields = { type: e.type, code: e.code, statusCode: e.statusCode, requestId: e.requestId };
+  if (e.type === "StripeInvalidRequestError" && typeof e.message === "string" && e.message !== "") {
+    return { ...fields, message: sanitizeStripeMessage(e.message) };
+  }
+  return fields;
 }
 
 /** true only for https URLs whose host ends in ".stripe.com" (Checkout, Connect onboarding). */

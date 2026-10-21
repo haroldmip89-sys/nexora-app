@@ -11,6 +11,7 @@ vi.mock("@/lib/db/client", () => ({
 
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import type { ProjectStatus } from "@/modules/projects/types/project.types";
@@ -86,7 +87,7 @@ async function seedAttempt(
   createdAt: Date,
 ) {
   const [selection] = (await ctx.db.select().from(proposalSelections)).filter((s) => s.projectId === projectId);
-  await ctx.db.insert(paymentAttempts).values({
+  const [row] = await ctx.db.insert(paymentAttempts).values({
     projectId,
     proposalId: selection.proposalId,
     clientId: client.id,
@@ -96,6 +97,23 @@ async function seedAttempt(
     stripePaymentIntentId: status === "completed_test" ? `pi_test_${seq}` : null,
     completedAt: status === "completed_test" ? new Date() : null,
     createdAt,
+  }).returning();
+  return row;
+}
+
+async function seedTransfer(
+  attempt: { id: string; proposalId: string },
+  values: { status: "pending" | "failed" | "completed_test"; reason?: string },
+) {
+  const [proposal] = (await ctx.db.select().from(proposals)).filter((p) => p.id === attempt.proposalId);
+  await ctx.db.insert(developerTransfers).values({
+    paymentAttemptId: attempt.id,
+    developerId: proposal.developerId,
+    amountCents: 150_000,
+    status: values.status,
+    lastErrorCode: values.reason ?? null,
+    stripeTransferId: values.status === "completed_test" ? `tr_test_${++seq}` : null,
+    completedAt: values.status === "completed_test" ? new Date() : null,
   });
 }
 
@@ -120,6 +138,7 @@ describe("getProjectPaymentOverview", () => {
       attempt: null,
       canStart: true,
       canResume: false,
+      transfer: null,
     });
   });
 
@@ -171,13 +190,33 @@ describe("getProjectPaymentOverview", () => {
     const project = await seedProject("proposal_selected");
     await seedAttempt(project.id, "pending", at(1));
     const overview = await getProjectPaymentOverview(client, project.id);
-    expect(Object.keys(overview).sort()).toEqual(["attempt", "canResume", "canStart", "project", "proposal"]);
+    expect(Object.keys(overview).sort()).toEqual(["attempt", "canResume", "canStart", "project", "proposal", "transfer"]);
     expect(Object.keys(overview.project).sort()).toEqual(["id", "status", "title"]);
     expect(Object.keys(overview.proposal).sort()).toEqual(["currency", "developerName", "priceCents", "timelineWeeks"]);
     expect(Object.keys(overview.attempt!).sort()).toEqual(["amountCents", "createdAt", "status", "updatedAt"]);
     const json = JSON.stringify(overview);
     expect(json).not.toContain("cs_test_");
     expect(json).not.toContain("@example.com");
+  });
+
+  it("transfer is null without a row, then exposes exactly status, completedAt and reason", async () => {
+    const project = await seedProject("proposal_selected");
+    const attempt = await seedAttempt(project.id, "completed_test", at(30));
+    expect((await getProjectPaymentOverview(client, project.id)).transfer).toBeNull();
+    await seedTransfer(attempt, { status: "pending", reason: "ACCOUNT_NOT_ACTIVE" });
+    const overview = await getProjectPaymentOverview(client, project.id);
+    expect(overview.transfer).toEqual({ status: "pending", completedAt: null, reason: "ACCOUNT_NOT_ACTIVE" });
+    expect(Object.keys(overview.transfer!).sort()).toEqual(["completedAt", "reason", "status"]);
+  });
+
+  it("completed transfer exposes completedAt and no Stripe ids", async () => {
+    const project = await seedProject("proposal_selected");
+    const attempt = await seedAttempt(project.id, "completed_test", at(10));
+    await seedTransfer(attempt, { status: "completed_test" });
+    const overview = await getProjectPaymentOverview(client, project.id);
+    expect(overview.transfer?.status).toBe("completed_test");
+    expect(overview.transfer?.completedAt).toBeInstanceOf(Date);
+    expect(JSON.stringify(overview)).not.toContain("tr_test_");
   });
 
   it("foreign client, unknown project and project without winner get NOT_FOUND", async () => {

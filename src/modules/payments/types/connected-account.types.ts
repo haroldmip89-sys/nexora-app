@@ -10,15 +10,23 @@ export const CONNECTED_ACCOUNT_STATUS_LABELS: Record<ConnectedAccountStatus, str
   restricted: "Requiere acción",
 };
 
-/** Minimal Stripe snapshot used by the pure derivation (decoupled from the SDK type). */
+/** Minimal Stripe Accounts v2 snapshot used by the pure derivation (decoupled from the SDK type). */
 export type ConnectedAccountSnapshot = {
-  detailsSubmitted: boolean;
-  transfersCapability: "active" | "inactive" | "pending" | (string & {}) | undefined;
-  /** null from Stripe is normalized to []. */
-  currentlyDue: string[];
-  /** null from Stripe is normalized to []. */
-  pastDue: string[];
-  disabledReason: string | null;
+  /** account.closed === true */
+  closed: boolean;
+  /** configuration.recipient.capabilities.stripe_balance.stripe_transfers.status (undefined without `include`). */
+  transfersStatus:
+    | "active"
+    | "pending"
+    | "rejected"
+    | "restricted"
+    | "unsupported"
+    | (string & {})
+    | undefined;
+  /** Some requirements.entries[] is awaiting action from the user. */
+  userActionRequired: boolean;
+  /** Some entry (or the summary) has minimum_deadline.status === "past_due". */
+  pastDue: boolean;
 };
 
 /** Page summary: no Stripe account id, email or any other Stripe data. */

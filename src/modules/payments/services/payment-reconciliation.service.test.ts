@@ -13,6 +13,11 @@ vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get: (_t, prop) => (holder.db as Record<string | symbol, unknown>)[prop] }),
 }));
 
+const transferMock = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/modules/payments/services/developer-transfer.service", () => ({
+  runTransferForAttempt: transferMock.run,
+}));
+
 const stripeState = vi.hoisted(() => ({
   sessions: new Map<string, Record<string, unknown>>(),
   retrieveCalls: [] as string[],
@@ -44,6 +49,7 @@ vi.mock("@/lib/stripe", async (importOriginal) => {
 import { StripeConfigError } from "@/lib/stripe";
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { proposalSelections } from "@/modules/proposals/schema/proposal-selections.table";
@@ -88,6 +94,8 @@ beforeEach(() => {
   stripeState.retrieveError = null;
   stripeState.configError = null;
   holder.db = ctx.db;
+  transferMock.run.mockReset();
+  transferMock.run.mockResolvedValue(undefined);
   vi.restoreAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});
@@ -285,5 +293,47 @@ describe("reconciliation converges with the webhook (AC19)", () => {
     expect(results.every((r) => r.status === "fulfilled")).toBe(true);
     expect((await attemptRow(s.attemptId)).status).toBe("completed_test");
     expect((await projectRow(s.projectId)).status).toBe("contracted");
+  });
+});
+
+describe("reconciliation: developer transfer (011b AC11 to AC12)", () => {
+  const transferRows = (attemptId: string) =>
+    ctx.db.select().from(developerTransfers).where(eq(developerTransfers.paymentAttemptId, attemptId));
+
+  it("completed creates one pending transfer row and runs the transfer post-commit", async () => {
+    const s = await seed();
+    setSession(s);
+    transferMock.run.mockImplementation(async (attemptId: string) => {
+      expect((await attemptRow(attemptId)).status).toBe("completed_test");
+      expect(await transferRows(attemptId)).toHaveLength(1);
+    });
+    expect(await reconcileProjectPayment(client, s.projectId)).toEqual({ outcome: "completed" });
+    const rows = await transferRows(s.attemptId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: "pending", amountCents: PRICE, currency: "USD" });
+    expect(transferMock.run).toHaveBeenCalledTimes(1);
+    expect(transferMock.run).toHaveBeenCalledWith(s.attemptId);
+  });
+
+  it("does not run for canceled, unchanged or none", async () => {
+    const canceled = await seed();
+    setSession(canceled, { status: "expired", payment_status: "unpaid" });
+    const open = await seed();
+    setSession(open, { status: "open", payment_status: "unpaid" });
+    const none = await seed({ attempt: "none" });
+    await reconcileProjectPayment(client, canceled.projectId);
+    await reconcileProjectPayment(client, open.projectId);
+    await reconcileProjectPayment(client, none.projectId);
+    expect(transferMock.run).not.toHaveBeenCalled();
+    expect(await transferRows(canceled.attemptId)).toHaveLength(0);
+    expect(await transferRows(open.attemptId)).toHaveLength(0);
+  });
+
+  it("a transfer that throws never changes the reconciliation result", async () => {
+    const s = await seed();
+    setSession(s);
+    transferMock.run.mockRejectedValue(new Error("boom"));
+    expect(await reconcileProjectPayment(client, s.projectId)).toEqual({ outcome: "completed" });
+    expect((await attemptRow(s.attemptId)).status).toBe("completed_test");
   });
 });

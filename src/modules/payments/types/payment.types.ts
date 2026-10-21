@@ -1,4 +1,5 @@
 import type { paymentAttemptStatusEnum } from "@/modules/payments/schema/payment-attempts.table";
+import type { ProjectTransferSummary } from "@/modules/payments/types/developer-transfer.types";
 import type { PaymentErrorCode } from "@/modules/payments/services/payment-errors";
 import type { ProjectStatus } from "@/modules/projects/types/project.types";
 
@@ -31,6 +32,8 @@ export type ProjectPaymentOverview = {
   } | null;
   canStart: boolean;
   canResume: boolean;
+  /** Transfer of the latest completed attempt; null if none exists. */
+  transfer: ProjectTransferSummary | null;
 };
 
 export type PaymentActionResult = {

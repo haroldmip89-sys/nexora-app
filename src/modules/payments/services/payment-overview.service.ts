@@ -5,7 +5,9 @@ import { AuthError } from "@/modules/auth/services/auth-errors";
 import { requireOwnership } from "@/modules/auth/services/current-user.service";
 import { can } from "@/modules/auth/services/permissions";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
+import type { TransferReason } from "@/modules/payments/types/developer-transfer.types";
 import type { ProjectPaymentOverview } from "@/modules/payments/types/payment.types";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { proposalSelections } from "@/modules/proposals/schema/proposal-selections.table";
@@ -66,6 +68,18 @@ export async function getProjectPaymentOverview(
     .orderBy(desc(paymentAttempts.createdAt), desc(paymentAttempts.id))
     .limit(1);
 
+  const [transferRow] = await db
+    .select({
+      status: developerTransfers.status,
+      completedAt: developerTransfers.completedAt,
+      reason: developerTransfers.lastErrorCode,
+    })
+    .from(developerTransfers)
+    .innerJoin(paymentAttempts, eq(paymentAttempts.id, developerTransfers.paymentAttemptId))
+    .where(and(eq(paymentAttempts.projectId, projectId), eq(paymentAttempts.status, "completed_test")))
+    .orderBy(desc(paymentAttempts.createdAt), desc(paymentAttempts.id))
+    .limit(1);
+
   const selected = project.status === "proposal_selected";
   const attempt = latest ?? null;
   return {
@@ -79,5 +93,12 @@ export async function getProjectPaymentOverview(
     attempt,
     canStart: selected && (!attempt || attempt.status === "failed" || attempt.status === "canceled"),
     canResume: selected && attempt?.status === "pending",
+    transfer: transferRow
+      ? {
+          status: transferRow.status,
+          completedAt: transferRow.completedAt,
+          reason: transferRow.reason as TransferReason | null,
+        }
+      : null,
   };
 }

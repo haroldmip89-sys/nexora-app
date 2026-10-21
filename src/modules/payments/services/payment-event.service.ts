@@ -5,6 +5,7 @@ import { db } from "@/lib/db/client";
 import { processedPaymentEvents } from "@/modules/payments/schema/processed-payment-events.table";
 import {
   applySessionOutcome,
+  runTransferSafely,
   type SessionOutcome,
 } from "@/modules/payments/services/payment-session-effects";
 import type { StripeEventOutcome } from "@/modules/payments/types/payment.types";
@@ -30,6 +31,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<StripeEven
   const session = event.data.object as Stripe.Checkout.Session;
   if (session.livemode !== false) return discard(event);
 
+  const applied: { attemptId: string | null } = { attemptId: null };
   const processed = await db.transaction(async (tx): Promise<StripeEventOutcome> => {
     const inserted = await tx
       .insert(processedPaymentEvents)
@@ -39,6 +41,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<StripeEven
     if (inserted.length === 0) return { result: "duplicate" };
 
     const effect = await applySessionOutcome(tx, { outcome, session });
+    applied.attemptId = effect.attemptId;
     await tx
       .update(processedPaymentEvents)
       .set({ result: effect.result, paymentAttemptId: effect.attemptId })
@@ -56,6 +59,15 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<StripeEven
     result: processed.result,
     reason,
   });
+
+  // 011b D-H: post-commit and never able to change the outcome (the payment is already confirmed).
+  if (
+    processed.result === "applied" &&
+    (processed.reason === "completed" || processed.reason === "completed_project_not_selected") &&
+    applied.attemptId
+  ) {
+    await runTransferSafely(applied.attemptId);
+  }
   return processed;
 }
 

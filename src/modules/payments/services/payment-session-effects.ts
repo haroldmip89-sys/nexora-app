@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { db } from "@/lib/db/client";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
+import { insertPendingTransfer } from "@/modules/payments/services/developer-transfer-records";
+import { runTransferForAttempt } from "@/modules/payments/services/developer-transfer.service";
 import {
   cancelPendingAttempt,
   completePendingAttempt,
@@ -117,6 +119,9 @@ export async function applySessionOutcome(
     return ignored("attempt_not_pending", attempt.id);
   }
 
+  // 011b D-B: the transfer row is born in the same transaction as the confirmed payment.
+  await insertPendingTransfer(tx, { attemptId: attempt.id });
+
   if (project.status !== "proposal_selected") {
     // RF6 (D-G): a confirmed payment is a fact; the project is never reopened nor contracted.
     console.error("[payments] payment completed on a project that is not proposal_selected", {
@@ -129,6 +134,21 @@ export async function applySessionOutcome(
     throw new Error("Project could not be contracted under lock");
   }
   return applied("completed", attempt.id);
+}
+
+/**
+ * Post-commit hook (011b D-H): executes the transfer of a just-confirmed payment. Must be called
+ * only after the transaction committed; it never throws and never changes the caller's result.
+ */
+export async function runTransferSafely(attemptId: string): Promise<void> {
+  try {
+    await runTransferForAttempt(attemptId);
+  } catch (e) {
+    console.error("[payments] transfer after payment failed", {
+      attemptId,
+      error: e instanceof Error ? e.name : "unknown",
+    });
+  }
 }
 
 const METADATA_KEYS = [

@@ -3,11 +3,15 @@ import { cn } from "@/lib/utils";
 export type PaymentStepState = "complete" | "current" | "upcoming";
 
 export type PaymentProgressProps = {
-  /** Server-derived states for steps 2 and 3. Step 1 is always complete; step 4 never is. */
+  /** Server-derived states for steps 2 to 4. Step 1 is always complete. */
   paymentStep: PaymentStepState;
   confirmationStep: PaymentStepState;
+  /** Test transfer step (spec 011b RF6); never shown as money received. */
+  transferStep: PaymentStepState;
   /** Optional short note under step 2 (e.g. "Iniciado"). */
   paymentNote?: string;
+  /** Optional short note under step 4 (e.g. "Transferencia de prueba pendiente"). */
+  transferNote?: string;
 };
 
 const STATE_TEXT: Record<PaymentStepState, string> = {
@@ -18,7 +22,13 @@ const STATE_TEXT: Record<PaymentStepState, string> = {
 
 type Step = { title: string; state: PaymentStepState; note: string };
 
-export function PaymentProgress({ paymentStep, confirmationStep, paymentNote }: PaymentProgressProps) {
+export function PaymentProgress({
+  paymentStep,
+  confirmationStep,
+  transferStep,
+  paymentNote,
+  transferNote,
+}: PaymentProgressProps) {
   const steps: Step[] = [
     { title: "Propuesta seleccionada", state: "complete", note: STATE_TEXT.complete },
     { title: "Pago de prueba", state: paymentStep, note: paymentNote ?? STATE_TEXT[paymentStep] },
@@ -27,8 +37,11 @@ export function PaymentProgress({ paymentStep, confirmationStep, paymentNote }: 
       state: confirmationStep,
       note: STATE_TEXT[confirmationStep],
     },
-    // D-J: fixed text; the transfer is never shown as done or received.
-    { title: "Transferencia al desarrollador", state: "upcoming", note: "Pendiente de implementación" },
+    {
+      title: "Transferencia al desarrollador",
+      state: transferStep,
+      note: transferNote ?? STATE_TEXT[transferStep],
+    },
   ];
   const currentIndex = steps.findIndex((step) => step.state === "current");
 

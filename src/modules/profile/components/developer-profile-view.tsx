@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/modules/auth/types/auth.types";
 import { DeveloperAvatar } from "@/modules/profile/components/developer-avatar";
@@ -130,9 +131,9 @@ function LinksSection({ links }: { links: ProfileLink[] }) {
   );
 }
 
-/** Plain-text bio (D3). Single integration point for a future Markdown renderer. */
+/** Markdown bio (same safe renderer as project descriptions, spec 018). */
 function DeveloperBio({ bio }: { bio: string }) {
-  return <p className="whitespace-pre-line break-words text-sm text-[#202522]">{bio}</p>;
+  return <MarkdownContent source={bio} className="text-sm [&>:first-child]:mt-0 [&>:last-child]:mb-0" />;
 }
 
 /** Public developer profile. Presentational: the page provides `<main>`. */

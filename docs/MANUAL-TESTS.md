@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 011a, 018 y 019 (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 011c, 018 y 019 (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -316,11 +316,28 @@ Cubre solo la cuenta conectada del desarrollador y su onboarding. No hay transfe
 - [ ] **Precondición:** en el Dashboard de Stripe, **en modo de prueba**, activa Connect (Settings > Connect; completa el perfil de plataforma si lo pide) y anota el país de tu cuenta de plataforma. **A verificar:** que ese país admite una plataforma con cuentas conectadas `US`. Sin Connect activo, "Configurar cobros de prueba" mostrará "Los cobros de prueba no están disponibles en este entorno.".
 - [ ] No hay variables nuevas: valen `STRIPE_SECRET_KEY` (`sk_test_...`) y `APP_URL`.
 - [ ] Aplica la migración `0004_connected_accounts` en Neon con `npm run db:migrate` (lo haces tú; los agentes no la ejecutan).
+- [ ] **Spec 011c (Accounts v2):** la opción de compatibilidad con Accounts v1 del Dashboard **ya no es necesaria**; no hace falta activarla.
+- [ ] **Precondición SQL (011c):** antes de probar, `SELECT user_id, stripe_account_id FROM connected_accounts WHERE stripe_account_id IS NOT NULL;` debe devolver **0 filas** (solo puede existir la fila con `stripe_account_id` nulo). Si devuelve alguna, resetea en modo de prueba con `DELETE FROM connected_accounts WHERE user_id = '<id>';`.
+
+### A verificar de 011c (no comprobables sin red; ciérralos tú)
+
+- [ ] (a) `POST /v2/core/accounts` con `dashboard: 'express'`, `fees_collector: 'application'`, `losses_collector: 'application'` y solo `stripe_transfers` se acepta para `identity.country` US en modo de prueba. Si Stripe exige otro valor: `fees_collector: 'application_express'`.
+- [ ] (b) Grafía de `identity.country` (`us` o `US`) y de `defaults.currency` (`usd`); se asume minúscula. Se ajusta con el `message` de Stripe visible en el log.
+- [ ] (c) Sin `include` la respuesta omite `configuration.recipient` y `requirements`; con `include: ['configuration.recipient', 'requirements']` los devuelve.
+- [ ] (d) Un Account Link v2 `account_onboarding` sin `configurations` abre el onboarding de la configuración `recipient` y la URL es `https://*.stripe.com`.
+- [ ] (e) Tras completar el onboarding con datos de prueba (`000000`, SSN `000-00-0000`, routing `110000000`, cuenta `000123456789`), `stripe_transfers.status` pasa a `active`.
+- [ ] (f) Antes de completar el onboarding, `requirements.entries` trae entradas con `awaiting_action_from: 'user'` (base de `not_started`); tras enviar los datos desaparecen mientras Stripe verifica (`pending`).
+- [x] (g) Un id de cuenta v2 (`acct_...`) acepta `stripe.transfers.create({ destination })` v1 (lo consume 011b) y la API v1 `accounts.retrieve` ya no es necesaria. **Verificado 2026-10-21:** `transfers.create` v1 hacia cuenta v2 `recipient` devolvió `tr_...` y `destination_payment`; basta con `destination`.
+- [ ] (h) Código y tipo de error de `v2.core.accounts.retrieve` / `accountLinks.create` con una cuenta inexistente o de otra plataforma. Esperado: 404 como `StripeInvalidRequestError` (p. ej. `account_not_found`) y mensaje `ACCOUNT_UNAVAILABLE`.
+- [ ] (i) Ventana real de la clave de idempotencia de `v2.core.accounts.create` (se asume al menos 24 h).
+- [ ] (j) `account.closed === true` es una señal fiable de cuenta cerrada.
+- [ ] (k) El Account Link v2 admite `return_url` y la sesión de Clerk (cookie `SameSite=Lax`) llega tras volver desde `connect.stripe.com`.
 
 ### Pasos
 
 1. [ ] **Onboarding completo:** con la cuenta Desarrollador A, ve a "Cobros de prueba", pulsa "Configurar cobros de prueba", completa el formulario de Stripe con datos de prueba (teléfono de prueba, código `000000`, SSN `000-00-0000`, dirección `address_full_match`, routing `110000000`, cuenta `000123456789`; **a verificar** según el formulario vigente) y vuelve. La página muestra "Lista para recibir transferencias de prueba" y el aviso "Volviste desde Stripe...". En Neon hay una sola fila con `acct_...` y `status = 'active'`. En el Dashboard (Connect > Accounts) aparece una sola cuenta.
-   - [ ] **A verificar:** que la combinación de parámetros de creación (`controller` con panel `express`, comisiones y pérdidas a cargo de la plataforma, recolección de requisitos por Stripe, solo la capacidad `transfers`) la acepta Stripe para `country: 'US'` en modo de prueba, y que esos datos de prueba dejan `capabilities.transfers = 'active'`.
+   - [ ] **Revisado en 011c (Accounts v2):** la cuenta se crea con configuración `recipient` y solo `stripe_balance.stripe_transfers`. Con los datos de prueba indicados, `stripe_transfers.status` debe pasar a `active` (a verificar (a), (b), (e)); antes de terminar, la etiqueta es "Sin configurar" o "En revisión" según (f).
+   - [ ] **Log con el `message` de Stripe (011c):** provoca un 400 temporal (p. ej. cambia `CONNECTED_ACCOUNT_COUNTRY` a un país inválido en local, borra la fila con `stripe_account_id` nulo si hace falta y pulsa "Configurar"). El log del servidor muestra `type`, `code`, `statusCode`, `requestId` y el `message` de Stripe saneado (máx. 300 caracteres), sin `acct_...`, `sk_...`, correos ni URLs (aparecen como `[redacted]`). Restaura la constante después.
 2. [ ] **Idempotencia:** antes de completar el onboarding, pulsa "Configurar" dos veces o en dos pestañas: queda una sola fila y una sola cuenta en Stripe. **A verificar:** la ventana real de la clave de idempotencia de `accounts.create` (se asume al menos 24 h, igual que en 009).
 3. [ ] **Abandono y continuación:** sal del onboarding a mitad. La página muestra "Sin configurar" con "Continuar configuración en Stripe", que reanuda la misma cuenta.
 4. [ ] **Enlace caducado:** reabre una URL de onboarding ya usada. Stripe redirige a `/dashboard/payouts/onboarding/refresh` y se abre un enlace nuevo. **A verificar:** que la sesión de Clerk llega a las URLs de return y refresh tras la redirección desde `connect.stripe.com` (cookie `SameSite=Lax`) y que la URL del enlace es `https://*.stripe.com`.
@@ -370,6 +387,37 @@ No requiere variables nuevas ni migración. Las filas antiguas en texto plano si
 7. [ ] **Mi cuenta:** A abre `/dashboard/account` y ve "Tu valoración" con el promedio con coma y "de 5 · N valoraciones". "Ver valoraciones recibidas" lleva a `/developers/<id de A>#valoraciones`. El resumen no aparece en el perfil público.
 8. [ ] **Texto plano:** un comentario con `<script>alert(1)</script>` o `**negrita**` se ve literal, con saltos de línea respetados y textos largos sin desbordar.
 9. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal en el formulario, la lista ni el resumen; las estrellas se operan con teclado, con foco visible, y el valor se anuncia (`aria-label`), no solo por color.
+
+## 8f. Spec 011b — Transferencias de prueba al desarrollador (Stripe Connect, Test Mode)
+
+Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con "Transferencia de prueba, no es dinero real". Cuentas: Cliente C (proyecto con propuesta aceptada de Desarrollador A), Desarrollador A, Desarrollador B y Cliente D.
+
+### Preparación
+
+- [ ] **Precondición:** el humano aplica la migración `0008_developer_transfers` en Neon con `npm run db:migrate` (los agentes no la ejecutan). No hay variables de entorno nuevas.
+- [ ] Para la prueba de saldo (si hace falta): paga con la tarjeta `4000 0000 0000 0077` para que la plataforma tenga saldo de prueba disponible.
+
+### A verificar (no comprobables sin red; ciérralos tú)
+
+- [ ] (a) `transfers.create` con `source_transaction` (cargo del PaymentIntent) y `destination` = cuenta v2 se acepta. La prueba verificada en 8b (g) fue sin `source_transaction`.
+- [ ] (b) Con `source_transaction` la transferencia no falla por saldo insuficiente aunque el cargo aún no esté disponible.
+- [ ] (c) La transferencia hereda el `transfer_group` del PaymentIntent (`group_pi_...`) y Stripe la acepta sin enviarlo explícitamente.
+- [ ] (d) Repetir `transfers.create` con la misma clave devuelve el mismo `tr_...`; tras un rechazo 4xx la misma clave repite el error (base de la generación en la clave).
+- [ ] (e) Ventana real de la clave de idempotencia de `transfers.create` (se asume al menos 24 h).
+- [ ] (f) Latencia del webhook con la transferencia en línea (tres llamadas a Stripe): `stripe listen` no muestra timeouts ni reintentos del evento.
+- [ ] (g) El Dashboard de Stripe muestra la transferencia con su `destination_payment` en la cuenta del desarrollador.
+
+### Pasos
+
+1. [ ] **Camino feliz:** con A en cuenta `active`, C paga con `4242 4242 4242 4242`. En la página de pago de C el paso 4 pasa a "Completado" con "Transferencia de prueba completada" y la etiqueta "Transferencia de prueba, no es dinero real". En `/dashboard/payouts` de A aparece la transferencia con el importe, el estado "Completada en Test Mode" y la etiqueta de prueba. En Neon: una fila con `status = 'completed_test'`, `stripe_transfer_id` `tr_...` y `completed_at`.
+2. [ ] **Cuenta no activa -> activa:** con A sin onboarding completo (o `restricted`), C paga. La transferencia queda "Pendiente" con el motivo "Tu cuenta de cobros aún no está activa..." y no se llama a `transfers.create`. A completa el onboarding y vuelve (o pulsa "Actualizar estado" con la cuenta `active`): la transferencia pasa sola a "Completada en Test Mode".
+3. [ ] **Reintento manual:** con una fila `pending` (p. ej. desconecta la red o quita temporalmente `STRIPE_SECRET_KEY` solo durante el pago), restaura y pulsa "Reintentar transferencia" en `/dashboard/payouts`: el botón muestra "Reintentando...", el resultado se anuncia y la fila pasa a "Completada en Test Mode". El botón no aparece si todas están completadas.
+4. [ ] **`failed`:** provoca un rechazo definitivo (p. ej. borra la cuenta de A en el Dashboard y recréala con otro `acct_`, o fuerza un destino inválido en una copia local). La fila queda "Fallida" con el motivo amigable; "Reintentar transferencia" sube `retry_generation` (la clave pasa a `nexora:transfer:<id>:1`) y vuelve a llamar. El cliente ve "Transferencia de prueba fallida; el desarrollador puede reintentarla" y no tiene botón de reintento.
+5. [ ] **Idempotencia:** envía dos veces el mismo evento con `stripe events resend <evt_...>` y pulsa "Reintentar transferencia" varias veces seguidas (o en dos pestañas): queda una sola fila y una sola transferencia en el Dashboard; el evento repetido entra como `duplicate`.
+6. [ ] **Permisos:** Cliente y Admin reciben 404 en `/dashboard/payouts` (y no hay botón de reintento); sin sesión redirige a `/sign-in`. B no ve ni reintenta las transferencias de A. D no ve el estado de la transferencia de C (404 en su página de pago).
+7. [ ] **Pago sin transferencia aún:** antes de pagar, el paso 4 es "Pendiente"; la sección "Transferencias de prueba" de A, sin filas, muestra "Aún no tienes transferencias de prueba.".
+8. [ ] **Privacidad y logs:** el HTML de la página de pago y de `/dashboard/payouts` no contiene `acct_...`, `tr_...`, `pi_...` ni URLs de Stripe; el log del servidor solo trae `transferId`, `status`, `reason` y los campos saneados de `stripeErrorLogFields` (nunca `acct_`, `tr_`, importes, correos ni el objeto de Stripe). La fila guarda códigos propios en `last_error_code`, no el mensaje de Stripe.
+9. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal, "Reintentar transferencia" operable con teclado, foco visible, objetivo táctil de 44 px, resultado anunciado en una región `aria-live` y el estado no depende solo del color.
 
 ## 9. Revisión visual transversal
 

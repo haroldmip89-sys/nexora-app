@@ -60,7 +60,7 @@ Referencias de arquitectura (solo estas secciones): `system-design.md §2` (enti
   - `any_client`: cualquier usuario autenticado con rol `client`.
   - `nobody`: nadie; solo lo ve el propio desarrollador.
   Visitantes anónimos, desarrolladores y admin **no** ven el correo en ninguna opción (admin: D8 de 004 limita su lectura a proyectos, propuestas y pagos). La decisión se toma **en el servidor**: el DTO público ya trae `contactEmail` resuelto o `null`.
-- **D3. Biografía.** Texto plano, hasta 1000 caracteres, renderizado como texto (React escapa; `whitespace-pre-line`). Se **ajusta el texto de ayuda** del diseño ("Admite Markdown básico") a "Texto plano. Los saltos de línea se conservan.". Punto de integración para 018: el texto se renderiza solo dentro de `DeveloperBio` (componente dentro de `developer-profile-view.tsx`); esta spec no importa nada de 018.
+- **D3. Biografía.** Texto plano, hasta 5000 caracteres, renderizado como texto (React escapa; `whitespace-pre-line`). Se **ajusta el texto de ayuda** del diseño ("Admite Markdown básico") a "Texto plano. Los saltos de línea se conservan.". Punto de integración para 018: el texto se renderiza solo dentro de `DeveloperBio` (componente dentro de `developer-profile-view.tsx`); esta spec no importa nada de 018.
 - **D4. Relación con Clerk y con `users`.** Tabla propia 1:1 con `users` (la existente `developer_profiles`), sin duplicar email ni nombre; el nombre visible se lee de `users.display_name`. **Ajustada por D14**: la tabla sigue en `users/schema`, la lógica de perfil vive en el módulo `profile`.
 - **D5. Nombre visible no editable en 019. Decidida.** Lo gestiona Clerk (nota "Se gestiona desde tu cuenta de acceso").
 - **D6. URL pública.** `/developers/[id]` con `users.id` (UUID); sin slug (YAGNI) ni `clerk_user_id`. Un UUID que no sea de un usuario `developer` da 404.
@@ -131,7 +131,7 @@ contactVisibility: contactVisibilityEnum("contact_visibility").notNull().default
 
 // tercer argumento: (t) => [check(...)]
 // developer_profiles_headline_length : char_length(headline) <= 80
-// developer_profiles_bio_length      : char_length(bio) <= 1000
+// developer_profiles_bio_length      : char_length(bio) <= 5000
 // developer_profiles_location_length : location IS NULL OR char_length(location) <= 80
 // developer_profiles_contact_email_length : contact_email IS NULL OR char_length(contact_email) <= 254
 // developer_profiles_links_shape     : jsonb_typeof(links) = 'array' AND jsonb_array_length(links) <= 5
@@ -155,7 +155,7 @@ export type DeveloperAvailability = "available" | "partial" | "unavailable";
 export type ContactVisibility = "accepted_client" | "any_client" | "nobody";
 
 export const PROFILE_LIMITS = {
-  headline: { min: 1, max: 80 }, location: { max: 80 }, bio: { max: 1000 },
+  headline: { min: 1, max: 80 }, location: { max: 80 }, bio: { max: 5000 },
   links: { maxItems: 5, urlMax: 300 }, contactEmail: { max: 254 },
 } as const;
 export const AVAILABILITY_LABELS: Record<DeveloperAvailability, string> = {
@@ -207,7 +207,7 @@ export type DeveloperRatingSummary = { average: number | null; count: number }; 
 - `headline`: `trim`, 1 a 80.
 - `location`: `trim`, 0 a 80; cadena vacía -> se guarda `null`.
 - `availability`: enum de los tres valores.
-- `bio`: `trim` solo en los extremos, 0 a 1000 (caracteres, no bytes). Texto plano: sin transformación del contenido.
+- `bio`: `trim` solo en los extremos, 0 a 5000 (caracteres, no bytes). Texto plano: sin transformación del contenido.
 - `links`: array de `{ type, url }` con máximo 5. Cada `url`: `trim`, longitud 1 a 300, debe parsear con `new URL(...)`, `protocol === "https:"`, **sin credenciales** y host con al menos un punto. Mensaje: "Escribe la URL completa, empezando por https://". `javascript:`, `data:`, `http:`, `//host` y relativas se rechazan. La URL se guarda tal como la escribió el usuario (`trim`). Duplicados exactos: "Este enlace ya está en tu lista".
 - `contactEmail`: `trim`; vacío -> `null`; si no, email válido (`z.email()` de zod 4; **a verificar**) de hasta 254.
 - `contactVisibility`: enum de los tres valores.
@@ -284,7 +284,7 @@ Tabla (en orden):
 - `developer-profile-form.tsx` (`"use client"`), secciones del diseño con estos ajustes:
   - **Foto de perfil**: `DeveloperAvatar` (96 px) con iniciales y el texto "Tu foto por defecto se genera con tus iniciales. La subida de fotos llegará más adelante." **Sin** botones "Subir foto" ni "Usar la foto por defecto".
   - **Información básica**: Nombre visible (solo lectura, `readOnly`/`aria-readonly`, nota "Se gestiona desde tu cuenta de acceso"), Titular, Ubicación, Disponibilidad (`native-select`).
-  - **Biografía**: `textarea` con contador `n / 1000` (`aria-describedby`), ayuda "Texto plano. Los saltos de línea se conservan." (D3). `font-sans`.
+  - **Biografía**: `textarea` con contador `n / 5000` (`aria-describedby`), ayuda "Texto plano. Los saltos de línea se conservan." (D3). `font-sans`.
   - **Enlaces**: "Hasta 5 · solo https://"; filas tipo + URL + quitar (aria-label "Quitar enlace N") y "Añadir enlace" (deshabilitado al llegar a 5). Error por fila con `role="alert"` y `aria-invalid` ("Escribe la URL completa, empezando por https://").
   - **Contacto**: "Correo de contacto" (aviso: "No es el correo de tu cuenta de acceso; tu correo de acceso nunca se muestra") y el grupo de radios "¿Quién ve tu correo?" con `CONTACT_VISIBILITY_LABELS`.
   - **Tu valoración**: renderiza `ratingSlot` (prop opcional de `DeveloperProfileForm`, que la página le pasa); sin `ratingSlot` **no se renderiza la sección**.
@@ -401,7 +401,7 @@ Base (T0):
 
 Schemas y lógica (T1):
 
-- AC4. `developerProfileInputSchema` acepta una entrada válida (con y sin ubicación, correo y enlaces) y rechaza: titular vacío o de más de 80; bio de más de 1000; más de 5 enlaces; URL `http:`, `javascript:`, `data:`, sin esquema, con credenciales, sin punto en el host, de más de 300 caracteres o duplicada; tipo de enlace desconocido; correo inválido o de más de 254; `availability` o `contactVisibility` desconocidos; claves extra (`userId`, `email`, `role`). Cadenas vacías de ubicación y correo se normalizan a `null`. `toDeveloperProfileFieldErrors` devuelve un mensaje por campo.
+- AC4. `developerProfileInputSchema` acepta una entrada válida (con y sin ubicación, correo y enlaces) y rechaza: titular vacío o de más de 80; bio de más de 5000; más de 5 enlaces; URL `http:`, `javascript:`, `data:`, sin esquema, con credenciales, sin punto en el host, de más de 300 caracteres o duplicada; tipo de enlace desconocido; correo inválido o de más de 254; `availability` o `contactVisibility` desconocidos; claves extra (`userId`, `email`, `role`). Cadenas vacías de ubicación y correo se normalizan a `null`. `toDeveloperProfileFieldErrors` devuelve un mensaje por campo.
 - AC5. `resolveContactEmail` cumple la tabla de RF4, con un caso por fila y por rol (visitante, `client`, `developer`, `admin`, dueño) y por valor de visibilidad.
 - AC6. `getInitials` cumple RF5: `"Lucía Ramos"` -> `"LR"`, un solo nombre -> una letra, espacios múltiples, Unicode y vacío -> `"?"`.
 - AC7. `getOwnProfile` y `saveOwnProfile`: `client` y `admin` reciben `FORBIDDEN` sin tocar la BD. Con dos desarrolladores, cada uno solo lee y escribe su fila. Guardar dos veces (secuencial y con `Promise.all`) deja una fila. `getOwnProfile` sin fila devuelve defaults con `hasProfile: false` y no inserta. `saveOwnProfile` no modifica `technologies` ni `external_url`.
@@ -413,7 +413,7 @@ Action, rutas y UI (T2, T3, T4):
 - AC10. Action: `requireRole("developer")` se ejecuta **antes** de validar; un `AuthError` no llama al servicio; entrada inválida devuelve `VALIDATION` con `fieldErrors` y no llama al servicio; éxito llama a `revalidatePath` para `/dashboard/account` y `/developers/<actor.id>` y devuelve `{ ok: true }`; un error desconocido devuelve `UNKNOWN` genérico sin imprimir el contenido del perfil. El id del actor define la fila.
 - AC11. `/developers/[id]` (manual): visible sin sesión; muestra avatar con iniciales, nombre, titular, ubicación, disponibilidad, biografía como texto plano (un `<script>` en la bio se ve como texto), enlaces con `rel="noopener noreferrer nofollow"`; 404 para UUID de cliente o inexistente; "Editar mi perfil" solo al dueño; el HTML de un visitante **no contiene** el correo de contacto ni `users.email`.
 - AC12. Privacidad de contacto (manual): con `accepted_client` solo el cliente con propuesta aceptada ve el correo; con `any_client` cualquier cliente con sesión; con `nobody` nadie salvo el dueño; visitante, otro desarrollador y admin no lo ven en ninguna opción.
-- AC13. `/dashboard/account` (manual): solo `developer` (cliente/admin -> 404, sin sesión -> `/sign-in`); guarda cada sección; "Descartar cambios" restablece; errores por campo accesibles; límites visibles (`n / 1000`, "Hasta 5 · solo https://"); sin botones de subida de foto; nombre de solo lectura; muestra la tarjeta "Cobros de prueba" con el enlace "Ir a Cobros de prueba" que abre `/dashboard/payouts` (sin estado de cuenta ni llamadas a Stripe desde esta página).
+- AC13. `/dashboard/account` (manual): solo `developer` (cliente/admin -> 404, sin sesión -> `/sign-in`); guarda cada sección; "Descartar cambios" restablece; errores por campo accesibles; límites visibles (`n / 5000`, "Hasta 5 · solo https://"); sin botones de subida de foto; nombre de solo lectura; muestra la tarjeta "Cobros de prueba" con el enlace "Ir a Cobros de prueba" que abre `/dashboard/payouts` (sin estado de cuenta ni llamadas a Stripe desde esta página).
 - AC14. Contrato 020: `DeveloperProfileView` sin `rating` no renderiza valoración; con `{ average: null, count: 0 }` muestra "Aún sin valoraciones"; con `{ average: 4.6, count: 12 }` muestra "4,6" y "12 valoraciones" (test RTL opcional o manual con la prop forzada); la sección "Valoraciones" solo existe con `reviewsSlot`. `src/modules/users` y `src/modules/profile` no importan ningún módulo de valoraciones.
 - AC15. Accesibilidad y responsive (manual): 390 px sin desbordes (incluido el header del desarrollador con tres enlaces); objetivos de 44 px; foco visible; `label` en cada control; errores con `role="alert"`; contraste de los tokens del repo.
 - AC16. Navegación (011a sustituido): `getAccountLink` devuelve `{ href: "/dashboard/account", label: "Mi cuenta" }` solo para `developer` y `null` para client, admin, visitor, degraded y needs_onboarding; `getPayoutsLink` ya no existe y nada la importa; los tests de `getDashboardLink` no cambian. El header del desarrollador muestra "Proyectos", "Mis propuestas" y "Mi cuenta" (con `aria-current` en `/dashboard/account`) y **no** "Cobros de prueba"; los de cliente, admin y visitante no cambian. `/dashboard/payouts` (y `return`/`refresh`) funcionan como antes y la página muestra un enlace "Volver a Mi cuenta"; no se modificó ningún servicio, action, schema, ruta ni test de `payments`.
@@ -514,3 +514,7 @@ Punto a confirmar al aprobar (consecuencia de verificar P8, no una pregunta): D1
 - Sub-navegación de "Mi cuenta", estado de la cuenta de cobros dentro de "Mi cuenta" (composición desde `src/app`) y sección "Acceso y seguridad".
 - Perfil público con slug, listado/búsqueda de desarrolladores y "Invitar a un proyecto".
 - 015: rate limiting del guardado y revisión transversal de privacidad.
+
+## Corrección posterior (2026-10-21, modo BUILD, decidida por el humano)
+
+Tope de la biografía subido de 1000 a 5000 caracteres (`bio.max`, CHECK `developer_profiles_bio_length`, tests). Requiere migración 0007 (la corre el humano).

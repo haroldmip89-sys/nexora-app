@@ -132,33 +132,40 @@ Reglas:
 
 ## 4. Transferencia al desarrollador (`transferStatus`)
 
-La transferencia es independiente del pago: son estados y entidades distintos. Que el pago esté en `completed_test` no implica que el desarrollador haya recibido nada.
+La transferencia es independiente del pago: son estados y entidades distintos. Que el pago esté en `completed_test` no implica que el desarrollador haya recibido nada. Desde la spec 011b el estado se **almacena** en `developer_transfers.status` (sustituye a la máquina derivada `not_applicable` / `pending_implementation` / `simulated`). La ausencia de fila equivale a "sin transferencia" (el pago aún no está `completed_test`).
 
 | Id | Etiqueta | Cuándo |
 |---|---|---|
-| `not_applicable` | No aplicable | Derivado: no existe pago `completed_test` para el proyecto. No se almacena |
-| `pending_implementation` | Pendiente de implementación | Derivado en el MVP inicial: existe pago `completed_test` y Stripe Connect aún no está implementado |
-| `simulated` | Simulada | Solo si la spec 011 incorpora Connect en test mode o simulación almacenada |
+| `pending` | Pendiente | La fila nace con el pago; aún no hay transferencia en Stripe (cuenta no activa, pago sin liquidar, error ambiguo o transitorio). Reintentable |
+| `completed_test` | Completada en Test Mode | Stripe aceptó `transfers.create`; guarda `stripe_transfer_id`. Terminal |
+| `failed` | Fallida | Rechazo definitivo de Stripe (`STRIPE_REJECTED`) o `livemode` verdadero (`LIVEMODE_REJECTED`). Reintento manual del desarrollador |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> not_applicable
-    not_applicable --> pending_implementation: derivada (pago pasa a completed_test)
-    pending_implementation --> simulated: sistema (spec 011)
-    simulated --> [*]
+    [*] --> pending: servidor (misma transaccion que el pago pasa a completed_test)
+    pending --> pending: reintento con resultado ambiguo o precondicion no cumplida
+    pending --> completed_test: servidor (transfers.create aceptado)
+    pending --> failed: servidor (rechazo definitivo de Stripe)
+    failed --> pending: desarrollador (Reintentar transferencia, retry_generation + 1)
+    completed_test --> [*]
 ```
 
 | Transición | Quién la dispara | Condición |
 |---|---|---|
-| `not_applicable -> pending_implementation` | Derivada automáticamente al pasar el pago a `completed_test` | Sin acción de usuario |
-| `pending_implementation -> simulated` | Sistema (spec 011, última fase) | Pago `completed_test`; flujo de test aprobado |
+| (creación) -> `pending` | `applySessionOutcome`, en la misma transacción que `pending -> completed_test` del pago (webhook verificado o reconciliación) | Una fila por pago (`UNIQUE payment_attempt_id`); también si el proyecto no estaba en `proposal_selected` (011b D-G). Sin llamadas a Stripe dentro de la transacción |
+| `pending -> completed_test` | Servidor, tras el commit del pago o en un reintento | Cuenta conectada releída y `active`; PaymentIntent `succeeded` con cargo; `transfers.create` (importe completo de la BD, `source_transaction`, clave `nexora:transfer:<id>:<generación>`) devuelve `tr_...` con `livemode = false` |
+| `pending -> pending` | Servidor | Cuenta no `active` o no releíble, pago sin liquidar, Stripe no disponible, respuesta inválida o Stripe sin configurar: se guarda el motivo en `last_error_code` |
+| `pending -> failed` | Servidor | Rechazo definitivo de Stripe (`StripeInvalidRequestError`, `StripeAuthenticationError`, `StripePermissionError`) o `livemode` verdadero |
+| `failed -> pending` | Desarrollador dueño (acción `transfer.retry`) | Solo sus filas; sube `retry_generation` y, por tanto, cambia la clave de idempotencia |
 
 Reglas:
 
-- Hasta la spec 011 no existe la tabla `simulatedTransfer`; el estado se deriva del pago (D6).
-- `pending_implementation` y `simulated` nunca se muestran como dinero recibido por el desarrollador.
-- `simulated` es el estado final de esta máquina en el alcance actual.
-- Nota (spec 011a): 011a crea la cuenta de destino (ver §6); la transferencia y su máquina de estados formal llegan con 011b.
+- `completed_test` es terminal y nunca se revierte. El pago y la transferencia siguen siendo independientes (I3).
+- Reintento automático sin cron (011b D-F): tras confirmar el pago, y cuando el desarrollador vuelve del onboarding o pulsa "Actualizar estado" con la cuenta `active` (solo sus `pending`). Reintento manual: "Reintentar transferencia" (sus `pending` y `failed`, máximo 10 por pulsación). No hay barrido global.
+- `last_error_code` guarda códigos propios (`TransferReason`), nunca el mensaje ni el código de Stripe (011b D-I).
+- La transferencia siempre se muestra como "Transferencia de prueba, no es dinero real"; nunca como dinero recibido. El cliente solo ve el estado; el desarrollador, su lista con motivo e importe.
+- Nota (spec 011a): la cuenta de destino y su caché de estado están en §6; el reintento la relee antes de transferir (la caché puede estar desfasada).
+- Nota (§3): la transición `pending -> completed_test` del pago crea la fila de transferencia en la misma transacción; ver arriba.
 
 ---
 
@@ -174,6 +181,14 @@ Reglas:
 - Cliente intenta cerrar un proyecto con pago `pending`: se rechaza con `PAYMENT_IN_PROGRESS`. El intento se resuelve por `checkout.session.expired` (`canceled`) o por "Actualizar estado" (spec 010); la cancelación explícita del cliente llega con la spec 012 (D2).
 - Usuario sin fila interna aunque exista en Clerk (primer ingreso, sincronización pendiente): spec 004.
 - Casos límite de la cuenta conectada: ver §6.
+- Transferencia (spec 011b): webhook repetido (`duplicate`) no inserta ni transfiere (la fila ya existe); dos confirmaciones simultáneas dejan una fila y una sola transferencia en Stripe (misma clave de idempotencia).
+- Cuenta del desarrollador no `active` (o sin cuenta) al pagar: fila `pending` / `ACCOUNT_NOT_ACTIVE`; se envía sola al volver del onboarding o al "Actualizar estado" con la cuenta `active`.
+- Error de red tras crear la transferencia en Stripe: la fila sigue `pending`; el reintento (misma clave) devuelve el mismo `tr_...`, sin duplicar.
+- Rechazo definitivo de Stripe: `failed` / `STRIPE_REJECTED`; "Reintentar transferencia" sube la generación y llama de nuevo.
+- Webhook que cae tras el commit del pago: pago `completed_test` con fila `pending`, reintentable por el desarrollador. Fallo en BD al crear la fila: todo el evento revierte (500) y Stripe reintenta.
+- Pago confirmado con proyecto no `proposal_selected`: la transferencia se crea igual (011b D-G).
+- Ventana de idempotencia vencida con un resultado ambiguo anterior: posible transferencia duplicada en Test Mode (011b R3, aceptado).
+- Cuenta reseteada y recreada entre reintentos (misma clave, otro destino): `StripeIdempotencyError` -> `pending`; se resuelve a mano (011b R4). Cuenta borrada en Stripe: `ACCOUNT_SYNC_FAILED`, fila `pending`.
 
 ---
 
@@ -211,10 +226,18 @@ Cualquier estado puede pasar a cualquier otro cuando el servidor relee la cuenta
 
 | # | Condición (datos de Stripe) | Estado |
 |---|---|---|
-| 1 | Capacidad `transfers` = `active` | `active` (aunque haya requisitos futuros o `payouts_enabled = false`) |
-| 2 | `details_submitted` es falso | `not_started` |
-| 3 | `past_due` o `currently_due` no vacíos, o `disabled_reason` no nulo y distinto de `requirements.pending_verification` y `under_review` | `restricted` (incluye `rejected.*`, `requirements.past_due`, `action_required.*`, `listed`, `platform_paused`, `other`) |
-| 4 | Cualquier otro caso | `pending` (datos enviados, Stripe verificando, o capacidad `pending`/`inactive` sin requisitos) |
+Desde 011c (Accounts v2) la derivación usa `configuration.recipient.capabilities.stripe_balance.stripe_transfers.status` y `requirements.entries[]` (la lectura exige `include: ['configuration.recipient', 'requirements']`). Sustituye a la tabla v1 de 011a (`details_submitted`, `currently_due[]` y `disabled_reason` ya no existen).
+
+| # | Condición (datos de Stripe v2) | Estado |
+|---|---|---|
+| 1 | `closed` es verdadero | `restricted` |
+| 2 | `stripe_transfers.status` = `active` | `active` (aunque haya entradas del usuario pendientes) |
+| 3 | `stripe_transfers.status` = `rejected`, `restricted` o `unsupported` | `restricted` |
+| 4 | Alguna entrada de `requirements` (o el resumen) con `minimum_deadline.status` = `past_due` | `restricted` |
+| 5 | Alguna entrada con `awaiting_action_from` = `user` | `not_started` (onboarding sin completar; la UI ofrece "Continuar configuración") |
+| 6 | Cualquier otro caso (capacidad `pending` o ausente, sin acciones del usuario) | `pending` (Stripe verificando) |
+
+Es una heurística: v2 no tiene `details_submitted`, por lo que `not_started` se infiere de las entradas pendientes del usuario. Los valores desconocidos de `status` caen en `pending`.
 
 ### Casos límite
 
@@ -223,7 +246,10 @@ Cualquier estado puede pasar a cualquier otro cuando el servidor relee la cuenta
 - Connect sin activar en la plataforma, clave live o ausente, o `APP_URL` ausente: el servidor responde que los cobros de prueba no están disponibles y no escribe.
 - Enlace de onboarding caducado o reutilizado: Stripe redirige a la URL de refresh, que genera un enlace nuevo.
 - El desarrollador vuelve sin completar: el retorno relee y queda `not_started` con cuenta ("Continuar configuración").
-- Requisitos nuevos tras estar `active`: sigue `active` mientras `transfers` esté activa; si Stripe la desactiva, pasa a `restricted` en la siguiente lectura.
+- Cuenta `closed` (v2): `restricted` aunque `stripe_transfers` figure `active`; si Stripe la elimina, la relectura da `ACCOUNT_UNAVAILABLE`.
+- `pending` sin acciones del usuario: capacidad `pending` o ausente y solo entradas con `awaiting_action_from` = `stripe`; el desarrollador ve "En revisión por Stripe".
+- Objeto sin `include` (sin `configuration` ni `requirements`): no lanza y deriva `pending`; por eso la lectura siempre pide `include`. Una cuenta con `livemode` verdadero se trata como anomalía (`ACCOUNT_UNAVAILABLE`, sin escribir).
+- Requisitos nuevos tras estar `active`: sigue `active` mientras `stripe_transfers` esté activa; si Stripe la desactiva, pasa a `restricted` en la siguiente lectura.
 - Cuenta borrada en Stripe o clave de otra cuenta de plataforma: error `ACCOUNT_UNAVAILABLE` sin escribir; reseteo manual de la fila (solo modo de prueba).
-- Estado desfasado: sin `account.updated` (diferido), un cambio de Stripe posterior solo se refleja al releer. 011b no debe fiarse de la caché sin decidir si relee antes de transferir.
+- Estado desfasado: sin `account.updated` (diferido), un cambio de Stripe posterior solo se refleja al releer. Ver 011b D-E: la transferencia relee el estado antes de transferir.
 - `?onboarding=returned` escrito a mano solo muestra un aviso; el estado sale siempre de la base de datos.

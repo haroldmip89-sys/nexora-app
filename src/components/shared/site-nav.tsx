@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,8 +21,13 @@ type SiteNavProps = {
   signedIn: boolean;
 };
 
+const subscribeNoop = () => () => {};
+
 export function SiteNav({ links, signedIn }: SiteNavProps) {
   const pathname = usePathname();
+  // Clerk's UserButton renders nothing on the server but can render at once on a client that already
+  // has Clerk loaded, which breaks hydration. Mount it only after hydration, behind a same-size placeholder.
+  const hydrated = useSyncExternalStore(subscribeNoop, () => true, () => false);
   // Remember the path where the menu was opened: it closes itself on route change without an effect.
   const [openedAt, setOpenedAt] = useState<string | null>(null);
   const open = openedAt === pathname;
@@ -87,7 +92,11 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           {signedIn ? (
-            <UserButton appearance={{ elements: { userButtonTrigger: "min-h-11 min-w-11 justify-center" } }} />
+            hydrated ? (
+              <UserButton appearance={{ elements: { userButtonTrigger: "min-h-11 min-w-11 justify-center" } }} />
+            ) : (
+              <span aria-hidden="true" className="inline-block size-11" />
+            )
           ) : (
             <Link
               href="/sign-up"

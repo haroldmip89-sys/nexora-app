@@ -1,0 +1,2 @@
+ALTER TABLE "developer_profiles" DROP CONSTRAINT "developer_profiles_bio_length";--> statement-breakpoint
+ALTER TABLE "developer_profiles" ADD CONSTRAINT "developer_profiles_bio_length" CHECK (char_length("developer_profiles"."bio") <= 5000);

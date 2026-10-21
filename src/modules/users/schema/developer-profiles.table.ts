@@ -49,7 +49,7 @@ export const developerProfiles = pgTable(
   },
   (t) => [
     check("developer_profiles_headline_length", sql`char_length(${t.headline}) <= 80`),
-    check("developer_profiles_bio_length", sql`char_length(${t.bio}) <= 1000`),
+    check("developer_profiles_bio_length", sql`char_length(${t.bio}) <= 5000`),
     check(
       "developer_profiles_location_length",
       sql`${t.location} IS NULL OR char_length(${t.location}) <= 80`,

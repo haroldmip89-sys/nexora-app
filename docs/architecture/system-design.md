@@ -44,7 +44,7 @@ Todas viven en Neon salvo indicación. Los nombres son conceptuales.
 | Selección de propuesta (`proposalSelection`) | Hecho inmutable "este proyecto eligió esta propuesta" | proyecto, propuesta, cliente que seleccionó, fecha | 1:1 con proyecto y 1:1 con propuesta; como máximo un ganador por proyecto |
 | Intento de pago (`paymentAttempt`) | Un intento de pago en Stripe Checkout (test) | proyecto, propuesta ganadora, cliente, importe USD y moneda copiados de la propuesta en el servidor, id de Checkout Session, id de PaymentIntent (cuando exista), estado, `livemode=false` | N:1 proyecto; N:1 propuesta; como máximo un intento `pending` o `completed_test` por proyecto |
 | Evento de pago procesado (`processedPaymentEvent`) | Registro para idempotencia de webhooks | `stripeEventId` (único), tipo, fecha de recepción, resultado del procesamiento | referencia opcional al intento de pago afectado |
-| Registro de transferencia simulada (`simulatedTransfer`) | Liquidación al desarrollador, distinta del pago | intento de pago, desarrollador destino, estado | 1:1 con intento de pago `completed_test`. **Diferido** hasta la spec 011 (D6): antes, `transferStatus` se deriva del pago |
+| Transferencia al desarrollador (`developerTransfer`, tabla `developer_transfers`) | Transferencia de prueba al desarrollador ganador, distinta del pago (spec 011b) | intento de pago (único), desarrollador destino, importe y moneda copiados del intento, estado (`pending` \| `completed_test` \| `failed`), id de transferencia de Stripe (nulo hasta crearla), generación de reintento, contador y fecha de intentos, código de motivo propio, fecha de completado | 1:1 con intento de pago `completed_test` (nace en la misma transacción que el pago); N:1 desarrollador. Reemplaza a `simulatedTransfer` (D6 cumplida) |
 | Cuenta conectada (`connectedAccount`) | Cuenta de Stripe Connect del desarrollador, solo modo de prueba (spec 011a) | usuario, id de cuenta de Stripe (único, nulo hasta que Stripe la crea), estado derivado (`not_started` \| `pending` \| `active` \| `restricted`), fecha de última sincronización | 1:0..1 con usuario de rol `developer`. Destino de la transferencia de 011b |
 | Valoración del desarrollador (`developerRating`) | Valoración del cliente al desarrollador contratado (spec 020) | proyecto (único), propuesta aceptada, estrellas 1 a 5, comentario opcional (<= 600, texto plano), fechas | 1:0..1 con proyecto; la propuesta aceptada da el desarrollador (no se guarda `developer_id` ni `client_id`) |
 
@@ -61,7 +61,7 @@ erDiagram
     project ||--o{ paymentAttempt : "tiene"
     proposal ||--o{ paymentAttempt : "se paga con"
     paymentAttempt ||--o{ processedPaymentEvent : "afectado por"
-    paymentAttempt ||--o| simulatedTransfer : "liquida (diferido, spec 011)"
+    paymentAttempt ||--o| developerTransfer : "liquida (spec 011b)"
     user ||--o| connectedAccount : "cobra en (rol developer)"
     project ||--o| developerRating : "se valora una vez (contratado)"
     proposal ||--o{ developerRating : "identifica al desarrollador valorado"
@@ -164,11 +164,11 @@ Resumen. El detalle (transiciones, disparadores, condiciones, diagramas y casos 
 
 ### 5.4 Transferencia (`transferStatus`)
 
-`not_applicable`, `pending_implementation`, `simulated`. Independiente del pago (I3); hasta la spec 011 se deriva del pago y no se almacena. Nunca se muestra como dinero recibido.
+`pending`, `completed_test`, `failed` (spec 011b; se almacena en `developer_transfers`). `completed_test` es terminal; `failed` se reabre solo por reintento manual del desarrollador. Independiente del pago (I3); la ausencia de fila equivale a "sin transferencia". Nunca se muestra como dinero recibido: siempre "Transferencia de prueba, no es dinero real". Detalle en `state-machines.md §4`.
 
 ### 5.5 Cuenta conectada (`connectedAccount.status`)
 
-`not_started`, `pending`, `active`, `restricted`. Es una caché derivada de Stripe (spec 011a): cualquier estado puede pasar a cualquier otro al releer la cuenta. `active` significa que la capacidad `transfers` está activa; no mueve dinero por sí sola. La ausencia de fila equivale a "Sin configurar". Derivación y casos límite en `state-machines.md §6`.
+`not_started`, `pending`, `active`, `restricted`. Es una caché derivada de Stripe (spec 011a): cualquier estado puede pasar a cualquier otro al releer la cuenta. Desde 011c se deriva de Accounts v2. `active` significa que la capacidad `stripe_balance.stripe_transfers` de la configuración `recipient` está activa; no mueve dinero por sí sola. La ausencia de fila equivale a "Sin configurar". Derivación y casos límite en `state-machines.md §6`.
 
 ---
 
@@ -186,6 +186,7 @@ Matriz de alto nivel derivada de `BRIEF §4`. El enforcement (guards, middleware
 | Iniciar pago de prueba | no | solo en proyecto propio con propuesta seleccionada | no | no |
 | Ver estado de pago | no | proyectos propios | su propuesta ganadora | sí (lectura) |
 | Configurar cobros de prueba (cuenta conectada propia; acción `payout.manage`) | no | no | sí, solo la propia | no |
+| Reintentar transferencias de prueba propias (acción `transfer.retry`; lectura con `payout.manage`) | no | no | sí, solo las propias | no |
 | Editar perfil propio (acción `profile.edit`) | no | no | sí, solo el propio | no |
 | Valorar al desarrollador (acción `rating.create`) | no | solo cliente propietario de un proyecto contratado (una vez; editable 14 días) | no | no |
 | Ver perfil público de un desarrollador | sí | sí | sí | sí (el correo de contacto solo lo ve un cliente según la visibilidad elegida: por defecto, uno con propuesta aceptada del desarrollador; nunca visitante, desarrollador ni admin) |
@@ -211,8 +212,9 @@ Notas:
 - **Pago y transferencia separados** (I3). Sin comisiones.
 - **Sin datos sensibles.** Nunca se guardan datos de tarjeta; solo identificadores externos únicos y estado derivado.
 - La ruta de webhook (`src/app/api/webhooks/stripe/route.ts`) solo hace routing y delega a `modules/payments`. Contratos detallados en las specs 009-010; Stripe Connect en la 011.
-- **Connect solo en modo de prueba (spec 011a).** Las cuentas conectadas usan el mismo cliente `getStripe()`, que rechaza claves live. Requiere activar Connect en el Dashboard de Stripe en modo de prueba (precondición manual).
+- **Connect solo en modo de prueba (spec 011a).** Las cuentas conectadas usan el mismo cliente `getStripe()`, que rechaza claves live, y desde 011c se crean con Accounts v2 (`stripe.v2.core.accounts`, Account Links v2); la opción de compatibilidad con Accounts v1 del Dashboard ya no es necesaria. Requiere activar Connect en el Dashboard de Stripe en modo de prueba (precondición manual).
 - **Separate charges and transfers.** El Checkout sigue cobrando en la cuenta de plataforma; la transferencia al desarrollador es posterior e independiente (011b).
+- **Transferencia de prueba (spec 011b).** Al pasar el pago a `completed_test` (webhook verificado o reconciliación), `applySessionOutcome` inserta en la misma transacción una fila `developer_transfers` `pending`. Después del commit, `runTransferForAttempt` (nunca lanza) relee la cuenta conectada, lee el PaymentIntent y llama a `stripe.transfers.create` (importe completo de la BD, USD, sin comisión, `source_transaction`, clave `nexora:transfer:<id>:<generación>`). Nunca hay llamadas a Stripe dentro de una transacción, y una falla de la transferencia nunca hace fallar el webhook. Los motivos se guardan como códigos propios; los mensajes de Stripe solo van a logs saneados. Reintento sin cron: tras el pago, al volver del onboarding o al "Actualizar estado" con cuenta `active`, y manual del desarrollador.
 - **Sincronización por relectura.** El estado de la cuenta conectada se actualiza leyendo la cuenta servidor a servidor al volver del onboarding y con el botón "Actualizar estado". El webhook `account.updated` queda diferido; el endpoint de 010 no recibe eventos de cuentas conectadas.
 
 ---
@@ -222,7 +224,7 @@ Notas:
 ### Confirmadas
 
 - Stack de `BRIEF §9`: Clerk, Drizzle ORM + Neon Postgres, Supabase Storage, Stripe, Zod.
-- Stripe Connect en test mode como último paso (spec 011); mientras tanto la transferencia es "pendiente de implementación". La spec 011 se parte en 011a (cuenta conectada y onboarding del desarrollador, sin mover dinero) y 011b (registro y ejecución de la transferencia).
+- Stripe Connect en test mode como último paso (spec 011) (la transferencia ya se registra y ejecuta desde 011b). La spec 011 se parte en 011a (cuenta conectada y onboarding del desarrollador, sin mover dinero) y 011b (registro y ejecución de la transferencia).
 - Prefijo `NNN-slug.md` para specs en `docs/specs/`.
 - Esta arquitectura se documenta en `docs/architecture/` y se referencia desde `SETUP.md §4`.
 
@@ -235,7 +237,7 @@ Notas:
 | D3 | `published -> draft` solo si el proyecto no tiene propuestas | 005 |
 | D4 | Tabla del perfil del desarrollador dentro del módulo `users`; la lógica de perfil vive en el módulo `profile` (ajustada por 019 D14) | 003, 019 |
 | D5 | Una propuesta por desarrollador por proyecto (unicidad); editable mientras `pending`; no se permite reenviar tras retirar | 003, 007 |
-| D6 | No se crea `simulatedTransfer` hasta la spec 011; antes `transferStatus` se deriva del pago | 011 |
+| D6 | No se crea `simulatedTransfer` hasta la spec 011; antes `transferStatus` se deriva del pago. **Cumplida en 011b:** la tabla `developer_transfers` reemplaza a `simulatedTransfer` | 011 |
 | D7 | Ubicación del cliente Drizzle y schema: se reserva `src/lib/db`; decisión final en la spec 003 | 003 |
 | D8 | Admin: lectura de proyectos/propuestas/pagos y cierre de proyectos; sin moderación | 004 |
 | D9 | Solo USD en el MVP, moneda almacenada con el importe; decimales/centavos se deciden en la spec 003 | 003 |
@@ -247,8 +249,30 @@ Notas:
 | Id | Decisión | Spec destino |
 |---|---|---|
 | D12 | Modelo Separate charges and transfers con disparo automático de la transferencia al confirmarse el pago (`pending -> completed_test`) y por el importe completo de la propuesta, sin comisión. El Checkout de 009 no cambia; `transfer_group` va en 011b | 011b |
-| D13 | Cuenta conectada con Accounts v1 usando `controller` (equivalente a Express, sin el `type` obsoleto) y onboarding alojado por Stripe con Account Links v1 (`account_onboarding`). Cuentas `US` en USD (país **a verificar**). Alternativa descartada: Accounts v2 | 011a |
+| D13 | Cuenta conectada con Accounts v1 usando `controller` (equivalente a Express, sin el `type` obsoleto) y onboarding alojado por Stripe con Account Links v1 (`account_onboarding`). Cuentas `US` en USD (país **a verificar**). Alternativa descartada: Accounts v2. **Superada por 011c-D1** (Stripe rechazó Accounts v1 en esta plataforma) | 011a |
 | D14 | Estado sincronizado por relectura servidor a servidor (return, refresh y botón "Actualizar estado"); el webhook `account.updated` y `stripe listen --forward-connect-to` quedan diferidos | 011a |
+
+### 011b-D-A a D-I (spec 011b, aprobadas)
+
+Los ids son los de la spec 011b; no sustituyen a los D-x de otras specs.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 011b-D-A | `source_transaction` (cargo del PaymentIntent) en la transferencia, sin tocar el Checkout de 009; se descarta `transfer_group` en Checkout (cumple la nota de D12/D6 de 011a) | 011b |
+| 011b-D-B | La fila de transferencia nace en la misma transacción que el pago (`applySessionOutcome`); una por pago (`UNIQUE payment_attempt_id`); sin llamadas a Stripe en transacciones | 011b |
+| 011b-D-C | Clave de idempotencia determinista `nexora:transfer:<transferId>:<retryGeneration>`; solo el reintento manual tras `failed` incrementa la generación | 011b |
+| 011b-D-D | Estados `pending`, `completed_test`, `failed`; `failed` solo por rechazo definitivo; lo ambiguo o con precondición no cumplida es `pending` | 011b |
+| 011b-D-E | Se relee la cuenta conectada antes de transferir; si no está `active`, la fila queda `pending` / `ACCOUNT_NOT_ACTIVE` | 011b |
+| 011b-D-F | Reintento automático sin cron (tras el pago, al volver del onboarding o "Actualizar estado" con cuenta `active`) y manual del desarrollador; sin barrido global | 011b |
+| 011b-D-G | Pago completado con proyecto no `proposal_selected`: la transferencia se crea igual | 011b |
+| 011b-D-H | Ejecución en línea tras el commit (no `after()`); una falla de la transferencia nunca hace fallar el webhook | 011b |
+| 011b-D-I | Los motivos se guardan como códigos propios (`last_error_code`), nunca el mensaje ni el código de Stripe | 011b |
+
+### 011c-D1 (spec 011c, aprobada)
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 011c-D1 | Cuenta conectada con Accounts v2 (`POST /v2/core/accounts`) con `configuration.recipient` + `stripe_balance.stripe_transfers`, `dashboard: 'express'` y onboarding con Account Links v2 (`account_onboarding`). Sustituye a D13 por el rechazo de Stripe a Accounts v1 en esta plataforma. El estado se deriva de `stripe_transfers.status` y `requirements.entries` (ver `state-machines.md §6`) | 011c |
 
 ### D14-D15 y perfil (spec 019, aprobadas)
 

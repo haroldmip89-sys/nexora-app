@@ -11,6 +11,7 @@ import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.tabl
 import { PaymentError } from "@/modules/payments/services/payment-errors";
 import {
   applySessionOutcome,
+  runTransferSafely,
   type SessionOutcome,
 } from "@/modules/payments/services/payment-session-effects";
 import type { ReconcileResult } from "@/modules/payments/types/payment.types";
@@ -67,6 +68,9 @@ export async function reconcileProjectPayment(
 
   const effect = await db.transaction((tx) => applySessionOutcome(tx, { outcome, session }));
   if (effect.result !== "applied") return { outcome: "unchanged" };
+  if (effect.reason === "completed" || effect.reason === "completed_project_not_selected") {
+    if (effect.attemptId) await runTransferSafely(effect.attemptId);
+  }
   return { outcome: effect.reason === "canceled" ? "canceled" : "completed" };
 }
 

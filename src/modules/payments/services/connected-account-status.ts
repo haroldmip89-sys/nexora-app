@@ -4,29 +4,27 @@ import type {
   ConnectedAccountStatus,
 } from "@/modules/payments/types/connected-account.types";
 
-/** Disabled reasons that mean "Stripe is still verifying", not "action required". */
-const VERIFYING_DISABLED_REASONS = new Set(["requirements.pending_verification", "under_review"]);
+const RESTRICTED_TRANSFER_STATUSES = new Set(["rejected", "restricted", "unsupported"]);
 
-export function toConnectedAccountSnapshot(account: Stripe.Account): ConnectedAccountSnapshot {
+export function toConnectedAccountSnapshot(account: Stripe.V2.Core.Account): ConnectedAccountSnapshot {
+  const entries = account.requirements?.entries ?? [];
   return {
-    detailsSubmitted: account.details_submitted === true,
-    transfersCapability: account.capabilities?.transfers,
-    currentlyDue: account.requirements?.currently_due ?? [],
-    pastDue: account.requirements?.past_due ?? [],
-    disabledReason: account.requirements?.disabled_reason ?? null,
+    closed: account.closed === true,
+    transfersStatus:
+      account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status,
+    userActionRequired: entries.some((e) => e.awaiting_action_from === "user"),
+    pastDue:
+      entries.some((e) => e.minimum_deadline?.status === "past_due") ||
+      account.requirements?.summary?.minimum_deadline?.status === "past_due",
   };
 }
 
-/** Pure derivation of the cached status from a Stripe snapshot (spec 011a RF1, in precedence order). */
+/** Pure derivation of the cached status from a Stripe v2 snapshot (spec 011c §2, in precedence order). */
 export function deriveConnectedAccountStatus(s: ConnectedAccountSnapshot): ConnectedAccountStatus {
-  if (s.transfersCapability === "active") return "active";
-  if (!s.detailsSubmitted) return "not_started";
-  if (
-    s.pastDue.length > 0 ||
-    s.currentlyDue.length > 0 ||
-    (s.disabledReason !== null && !VERIFYING_DISABLED_REASONS.has(s.disabledReason))
-  ) {
-    return "restricted";
-  }
+  if (s.closed) return "restricted";
+  if (s.transfersStatus === "active") return "active";
+  if (s.transfersStatus && RESTRICTED_TRANSFER_STATUSES.has(s.transfersStatus)) return "restricted";
+  if (s.pastDue) return "restricted";
+  if (s.userActionRequired) return "not_started";
   return "pending";
 }

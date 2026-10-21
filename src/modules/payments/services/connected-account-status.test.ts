@@ -7,72 +7,81 @@ import {
 } from "./connected-account-status";
 
 const base: ConnectedAccountSnapshot = {
-  detailsSubmitted: true,
-  transfersCapability: "pending",
-  currentlyDue: [],
-  pastDue: [],
-  disabledReason: null,
+  closed: false,
+  transfersStatus: "pending",
+  userActionRequired: false,
+  pastDue: false,
 };
 
 describe("deriveConnectedAccountStatus", () => {
   it.each<[string, Partial<ConnectedAccountSnapshot>, string]>([
-    ["transfers active wins over currentlyDue", { transfersCapability: "active", currentlyDue: ["x"] }, "active"],
-    ["transfers active wins over disabledReason", { transfersCapability: "active", disabledReason: "rejected.fraud" }, "active"],
-    ["transfers active without details", { transfersCapability: "active", detailsSubmitted: false }, "active"],
-    ["no details + pastDue", { detailsSubmitted: false, pastDue: ["x"] }, "not_started"],
-    ["no details, nothing else", { detailsSubmitted: false }, "not_started"],
-    ["capabilities absent, no details", { detailsSubmitted: false, transfersCapability: undefined }, "not_started"],
-    ["capabilities absent, details submitted", { transfersCapability: undefined }, "pending"],
-    ["pastDue", { pastDue: ["external_account"] }, "restricted"],
-    ["currentlyDue", { currentlyDue: ["individual.id_number"] }, "restricted"],
-    ["rejected.fraud", { disabledReason: "rejected.fraud" }, "restricted"],
-    ["action_required", { disabledReason: "action_required.requested_capabilities" }, "restricted"],
-    ["platform_paused", { disabledReason: "platform_paused" }, "restricted"],
-    ["pending_verification, no requirements", { disabledReason: "requirements.pending_verification" }, "pending"],
-    ["under_review, no requirements", { disabledReason: "under_review" }, "pending"],
-    ["pending_verification with currentlyDue", { disabledReason: "requirements.pending_verification", currentlyDue: ["x"] }, "restricted"],
-    ["inactive capability, no requirements", { transfersCapability: "inactive" }, "pending"],
-    ["pending capability, no requirements", {}, "pending"],
+    ["closed wins over active", { closed: true, transfersStatus: "active" }, "restricted"],
+    ["active wins over user action", { transfersStatus: "active", userActionRequired: true }, "active"],
+    ["active wins over past due", { transfersStatus: "active", pastDue: true }, "active"],
+    ["rejected", { transfersStatus: "rejected" }, "restricted"],
+    ["restricted", { transfersStatus: "restricted" }, "restricted"],
+    ["unsupported", { transfersStatus: "unsupported" }, "restricted"],
+    ["restricted wins over user action", { transfersStatus: "restricted", userActionRequired: true }, "restricted"],
+    ["pending + past due", { pastDue: true }, "restricted"],
+    ["past due wins over user action", { pastDue: true, userActionRequired: true }, "restricted"],
+    ["pending + user action", { userActionRequired: true }, "not_started"],
+    ["absent status + user action", { transfersStatus: undefined, userActionRequired: true }, "not_started"],
+    ["pending, only stripe pending", {}, "pending"],
+    ["absent status, nothing else", { transfersStatus: undefined }, "pending"],
+    ["unknown status", { transfersStatus: "something_new" }, "pending"],
   ])("%s", (_name, patch, expected) => {
     expect(deriveConnectedAccountStatus({ ...base, ...patch })).toBe(expected);
   });
 });
 
 describe("toConnectedAccountSnapshot", () => {
-  it("normalizes null requirements to empty arrays", () => {
-    const account = {
-      details_submitted: true,
-      capabilities: { transfers: "pending" },
-      requirements: { currently_due: null, past_due: null, disabled_reason: null },
-    } as unknown as Stripe.Account;
-    expect(toConnectedAccountSnapshot(account)).toEqual({
-      detailsSubmitted: true,
-      transfersCapability: "pending",
-      currentlyDue: [],
-      pastDue: [],
-      disabledReason: null,
+  const asAccount = (o: unknown) => o as Stripe.V2.Core.Account;
+
+  it("does not throw on an object without configuration or requirements", () => {
+    expect(toConnectedAccountSnapshot(asAccount({}))).toEqual({
+      closed: false,
+      transfersStatus: undefined,
+      userActionRequired: false,
+      pastDue: false,
     });
   });
 
-  it("handles missing capabilities and requirements", () => {
-    const snap = toConnectedAccountSnapshot({ details_submitted: false } as unknown as Stripe.Account);
-    expect(snap).toEqual({
-      detailsSubmitted: false,
-      transfersCapability: undefined,
-      currentlyDue: [],
-      pastDue: [],
-      disabledReason: null,
-    });
+  it("reads transfers status and closed", () => {
+    const snap = toConnectedAccountSnapshot(
+      asAccount({
+        closed: true,
+        configuration: {
+          recipient: { capabilities: { stripe_balance: { stripe_transfers: { status: "active" } } } },
+        },
+      }),
+    );
+    expect(snap.closed).toBe(true);
+    expect(snap.transfersStatus).toBe("active");
   });
 
-  it("copies requirement lists", () => {
-    const snap = toConnectedAccountSnapshot({
-      details_submitted: true,
-      capabilities: { transfers: "inactive" },
-      requirements: { currently_due: ["a"], past_due: ["b"], disabled_reason: "other" },
-    } as unknown as Stripe.Account);
-    expect(snap.currentlyDue).toEqual(["a"]);
-    expect(snap.pastDue).toEqual(["b"]);
-    expect(snap.disabledReason).toBe("other");
+  it("detects user-awaited entries but not stripe-awaited ones", () => {
+    const user = toConnectedAccountSnapshot(
+      asAccount({ requirements: { entries: [{ awaiting_action_from: "user" }] } }),
+    );
+    const stripe = toConnectedAccountSnapshot(
+      asAccount({ requirements: { entries: [{ awaiting_action_from: "stripe" }] } }),
+    );
+    expect(user.userActionRequired).toBe(true);
+    expect(stripe.userActionRequired).toBe(false);
+  });
+
+  it("detects past_due in an entry or in the summary", () => {
+    const entry = toConnectedAccountSnapshot(
+      asAccount({ requirements: { entries: [{ minimum_deadline: { status: "past_due" } }] } }),
+    );
+    const summary = toConnectedAccountSnapshot(
+      asAccount({ requirements: { summary: { minimum_deadline: { status: "past_due" } } } }),
+    );
+    const due = toConnectedAccountSnapshot(
+      asAccount({ requirements: { entries: [{ minimum_deadline: { status: "currently_due" } }] } }),
+    );
+    expect(entry.pastDue).toBe(true);
+    expect(summary.pastDue).toBe(true);
+    expect(due.pastDue).toBe(false);
   });
 });

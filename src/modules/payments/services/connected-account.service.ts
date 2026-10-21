@@ -24,8 +24,15 @@ import type {
   ConnectedAccountStatus,
 } from "@/modules/payments/types/connected-account.types";
 
-/** Country of the test connected accounts (spec 011a D5; to be verified against the platform). */
-export const CONNECTED_ACCOUNT_COUNTRY = "US";
+/** Country and currency of the test connected accounts (spec 011c; lowercase per v2 convention, to be verified). */
+export const CONNECTED_ACCOUNT_COUNTRY = "us";
+export const CONNECTED_ACCOUNT_CURRENCY = "usd";
+
+/** Fields v2 only returns when requested (spec 011c R3). */
+const ACCOUNT_INCLUDE: ("configuration.recipient" | "requirements")[] = [
+  "configuration.recipient",
+  "requirements",
+];
 
 const STRIPE_ACCOUNT_ID_PREFIX = "acct_";
 
@@ -75,21 +82,25 @@ export async function ensureConnectedAccount(
   }
 
   // Phase B: create in Stripe (outside any transaction).
-  let account: Stripe.Account;
+  let account: Stripe.V2.Core.Account;
   try {
-    account = await stripe.accounts.create(
+    account = await stripe.v2.core.accounts.create(
       {
-        country: CONNECTED_ACCOUNT_COUNTRY,
-        controller: {
-          stripe_dashboard: { type: "express" },
-          fees: { payer: "application" },
-          losses: { payments: "application" },
-          requirement_collection: "stripe",
+        // Stripe requires a contact email for a `recipient` configuration; it is never logged.
+        contact_email: actor.email,
+        identity: { country: CONNECTED_ACCOUNT_COUNTRY },
+        dashboard: "express",
+        defaults: {
+          currency: CONNECTED_ACCOUNT_CURRENCY,
+          responsibilities: { fees_collector: "application", losses_collector: "application" },
         },
-        capabilities: { transfers: { requested: true } },
+        configuration: {
+          recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+        },
+        include: [...ACCOUNT_INCLUDE],
         metadata: { nexora_user_id: actor.id },
       },
-      { idempotencyKey: `nexora:connect-account:${row.id}` },
+      { idempotencyKey: `nexora:connect-account-v2:${row.id}` },
     );
   } catch (e) {
     console.error("[payments] Stripe account create failed:", stripeErrorLogFields(e));
@@ -154,12 +165,16 @@ export async function startOnboarding(actor: AuthUser): Promise<{ onboardingUrl:
   const stripe = resolveStripe();
   let url: string | null | undefined;
   try {
-    const link = await stripe.accountLinks.create({
+    const link = await stripe.v2.core.accountLinks.create({
       account: stripeAccountId,
-      type: "account_onboarding",
-      refresh_url: `${appUrl}/dashboard/payouts/onboarding/refresh`,
-      return_url: `${appUrl}/dashboard/payouts/onboarding/return`,
-      collection_options: { fields: "currently_due" },
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          refresh_url: `${appUrl}/dashboard/payouts/onboarding/refresh`,
+          return_url: `${appUrl}/dashboard/payouts/onboarding/return`,
+          collection_options: { fields: "currently_due" },
+        },
+      },
     });
     url = link?.url;
   } catch (e) {
@@ -180,19 +195,33 @@ export async function syncConnectedAccount(
   actor: AuthUser,
 ): Promise<{ status: ConnectedAccountStatus }> {
   assertCanManage(actor);
+  const { status } = await syncConnectedAccountForUser(actor.id);
+  return { status };
+}
+
+/**
+ * Core of `syncConnectedAccount` without an actor (spec 011b): internal callers (transfers) that
+ * already know the developer id. It also returns the stored `acct_` id (null if none).
+ * Never expose it to the client.
+ */
+export async function syncConnectedAccountForUser(
+  userId: string,
+): Promise<{ status: ConnectedAccountStatus; stripeAccountId: string | null }> {
   const stripe = resolveStripe();
 
   const [row] = await db
     .select({ id: connectedAccounts.id, stripeAccountId: connectedAccounts.stripeAccountId })
     .from(connectedAccounts)
-    .where(eq(connectedAccounts.userId, actor.id))
+    .where(eq(connectedAccounts.userId, userId))
     .limit(1);
-  if (!row?.stripeAccountId) return { status: "not_started" };
+  if (!row?.stripeAccountId) return { status: "not_started", stripeAccountId: null };
   const stripeAccountId = row.stripeAccountId;
 
-  let account: Stripe.Account;
+  let account: Stripe.V2.Core.Account;
   try {
-    account = await stripe.accounts.retrieve(stripeAccountId);
+    account = await stripe.v2.core.accounts.retrieve(stripeAccountId, {
+      include: [...ACCOUNT_INCLUDE],
+    });
   } catch (e) {
     console.error("[payments] Stripe account retrieve failed:", stripeErrorLogFields(e));
     throw new ConnectedAccountError(
@@ -201,7 +230,11 @@ export async function syncConnectedAccount(
   }
 
   const owner = account?.metadata?.nexora_user_id;
-  if (account?.id !== stripeAccountId || (owner !== undefined && owner !== actor.id)) {
+  if (
+    account?.id !== stripeAccountId ||
+    (owner !== undefined && owner !== userId) ||
+    account?.livemode === true
+  ) {
     console.error("[payments] connected account mismatch", { rowId: row.id });
     throw new ConnectedAccountError("ACCOUNT_UNAVAILABLE");
   }
@@ -214,7 +247,7 @@ export async function syncConnectedAccount(
       and(eq(connectedAccounts.id, row.id), eq(connectedAccounts.stripeAccountId, stripeAccountId)),
     );
   console.info("[payments] connected account synced", { rowId: row.id, status });
-  return { status };
+  return { status, stripeAccountId };
 }
 
 /** DB-only summary for the page (spec 011a RF5): no Stripe call, no write, no Stripe data. */

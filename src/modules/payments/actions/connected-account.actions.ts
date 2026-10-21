@@ -12,6 +12,7 @@ import {
   startOnboarding,
   syncConnectedAccount,
 } from "@/modules/payments/services/connected-account.service";
+import { retryDeveloperTransfers } from "@/modules/payments/services/developer-transfer.service";
 import type {
   ConnectedAccountActionResult,
   RefreshConnectedAccountResult,
@@ -65,6 +66,14 @@ export async function refreshConnectedAccountAction(): Promise<RefreshConnectedA
     ({ status } = await syncConnectedAccount(actor));
   } catch (e) {
     return toResult(e);
+  }
+
+  if (status === "active") {
+    try {
+      await retryDeveloperTransfers(actor);
+    } catch {
+      // Auto-retry is best effort (spec 011b D-F): never changes the sync result.
+    }
   }
 
   revalidatePath(PAYOUTS_PATH);

@@ -9,6 +9,11 @@ import {
 import { RefreshPaymentButton } from "@/modules/payments/components/refresh-payment-button";
 import { StartCheckoutButton } from "@/modules/payments/components/start-checkout-button";
 import {
+  TRANSFER_TEST_NOTICE,
+  type DeveloperTransferStatus,
+  type ProjectTransferSummary,
+} from "@/modules/payments/types/developer-transfer.types";
+import {
   PAYMENT_ATTEMPT_STATUS_LABELS,
   type PaymentAttemptStatus,
   type ProjectPaymentOverview,
@@ -34,11 +39,23 @@ const ATTEMPT_TEXT: Record<Exclude<PaymentAttemptStatus, "completed_test">, stri
   failed: "El intento anterior falló.",
 };
 
-function attemptText(status: PaymentAttemptStatus, projectStatus: string): string {
+const TRANSFER_TEXT: Record<DeveloperTransferStatus, string> = {
+  pending: "Transferencia de prueba pendiente",
+  completed_test: "Transferencia de prueba completada",
+  failed: "Transferencia de prueba fallida; el desarrollador puede reintentarla",
+};
+
+function attemptText(
+  status: PaymentAttemptStatus,
+  projectStatus: string,
+  transfer: ProjectTransferSummary | null,
+): string {
   if (status !== "completed_test") return ATTEMPT_TEXT[status];
-  return projectStatus === "contracted"
-    ? "Pago de prueba confirmado por el servidor. El proyecto está en contratación. No se movió dinero real y la transferencia al desarrollador sigue pendiente de implementación."
-    : "Pago de prueba confirmado por el servidor. No se movió dinero real.";
+  const base =
+    projectStatus === "contracted"
+      ? "Pago de prueba confirmado por el servidor. El proyecto está en contratación. No se movió dinero real."
+      : "Pago de prueba confirmado por el servidor. No se movió dinero real.";
+  return transfer ? `${base} ${TRANSFER_TEXT[transfer.status]}.` : base;
 }
 
 function badgeLabel(status: PaymentAttemptStatus): string {
@@ -49,18 +66,34 @@ function badgeLabel(status: PaymentAttemptStatus): string {
 
 function deriveProgress(overview: ProjectPaymentOverview): PaymentProgressProps {
   const status = overview.attempt?.status;
-  if (status === "completed_test") return { paymentStep: "complete", confirmationStep: "complete" };
-  if (status === "pending") {
-    return { paymentStep: "current", confirmationStep: "current", paymentNote: "Iniciado" };
+  if (status === "completed_test") {
+    const transfer = overview.transfer;
+    const base = { paymentStep: "complete", confirmationStep: "complete" } as const;
+    if (!transfer) return { ...base, transferStep: "upcoming" };
+    return {
+      ...base,
+      transferStep: transfer.status === "completed_test" ? "complete" : "current",
+      transferNote: TRANSFER_TEXT[transfer.status],
+    };
   }
-  if (overview.canStart) return { paymentStep: "current", confirmationStep: "upcoming" };
-  return { paymentStep: "upcoming", confirmationStep: "upcoming" };
+  if (status === "pending") {
+    return {
+      paymentStep: "current",
+      confirmationStep: "current",
+      transferStep: "upcoming",
+      paymentNote: "Iniciado",
+    };
+  }
+  if (overview.canStart) {
+    return { paymentStep: "current", confirmationStep: "upcoming", transferStep: "upcoming" };
+  }
+  return { paymentStep: "upcoming", confirmationStep: "upcoming", transferStep: "upcoming" };
 }
 
 type Props = { overview: ProjectPaymentOverview; returnNotice?: ReturnNotice };
 
 export function PaymentPageView({ overview, returnNotice }: Props) {
-  const { project, proposal, attempt, canStart, canResume } = overview;
+  const { project, proposal, attempt, canStart, canResume, transfer } = overview;
   const closedWithoutPayment = !canStart && !canResume && attempt?.status !== "completed_test";
   const buttonLabel = canResume
     ? "Continuar en Stripe"
@@ -158,11 +191,14 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
 
         <p className="mt-2 text-sm text-[#202522]">
           {attempt
-            ? attemptText(attempt.status, project.status)
+            ? attemptText(attempt.status, project.status, transfer)
             : closedWithoutPayment
               ? "Este proyecto ya no admite un nuevo pago de prueba."
               : "Aún no iniciaste el pago de prueba."}
         </p>
+        {attempt?.status === "completed_test" ? (
+          <p className="mt-2 text-xs text-[#535E56]">{TRANSFER_TEST_NOTICE}</p>
+        ) : null}
         {attempt && closedWithoutPayment ? (
           <p className="mt-2 text-sm text-[#535E56]">
             Este proyecto ya no admite un nuevo pago de prueba.

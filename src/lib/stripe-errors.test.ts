@@ -49,6 +49,60 @@ describe("stripeErrorLogFields", () => {
     expect(fields).toEqual({ type: "StripeAPIError", code: "x", statusCode: 500, requestId: "req_fake" });
   });
 
+  it.each([
+    "StripeAPIError",
+    "StripeConnectionError",
+    "StripeIdempotencyError",
+    "StripeAuthenticationError",
+  ])("never includes message for %s", (type) => {
+    const fields = stripeErrorLogFields({ type, message: "detail", code: "c" });
+    expect(Object.keys(fields).sort()).toEqual(["code", "requestId", "statusCode", "type"]);
+  });
+
+  it("includes the message for StripeInvalidRequestError", () => {
+    const fields = stripeErrorLogFields({
+      type: "StripeInvalidRequestError",
+      code: "x",
+      statusCode: 400,
+      requestId: "req_fake",
+      message: "Invalid country for this account",
+    });
+    expect(fields).toEqual({
+      type: "StripeInvalidRequestError",
+      code: "x",
+      statusCode: 400,
+      requestId: "req_fake",
+      message: "Invalid country for this account",
+    });
+  });
+
+  it("omits message when it is empty or not a string", () => {
+    for (const message of ["", 42, undefined]) {
+      const fields = stripeErrorLogFields({ type: "StripeInvalidRequestError", message });
+      expect("message" in fields).toBe(false);
+    }
+  });
+
+  it("redacts ids, keys, emails and URLs in the message", () => {
+    const { message } = stripeErrorLogFields({
+      type: "StripeInvalidRequestError",
+      message:
+        "No such account acct_FAKE123 with key sk_test_FAKEKEY for dev@example.com see https://docs.stripe.com/x?a=1 and cus_abc",
+    });
+    expect(message).toBe(
+      "No such account [redacted] with key [redacted] for [redacted] see [redacted] and [redacted]",
+    );
+    expect(message).not.toMatch(/acct_|sk_test|@|https?:/);
+  });
+
+  it("truncates the message to 300 characters", () => {
+    const { message } = stripeErrorLogFields({
+      type: "StripeInvalidRequestError",
+      message: "a".repeat(1000),
+    });
+    expect(message).toHaveLength(300);
+  });
+
   it("tolerates null and undefined", () => {
     expect(stripeErrorLogFields(null)).toEqual({
       type: undefined,

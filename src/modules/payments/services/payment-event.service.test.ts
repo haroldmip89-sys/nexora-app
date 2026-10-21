@@ -14,6 +14,11 @@ vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get: (_t, prop) => (holder.db as Record<string | symbol, unknown>)[prop] }),
 }));
 
+const transferMock = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/modules/payments/services/developer-transfer.service", () => ({
+  runTransferForAttempt: transferMock.run,
+}));
+
 const inject = vi.hoisted(() => ({ contractFailures: 0 }));
 vi.mock("@/modules/projects/services/project-transitions", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/modules/projects/services/project-transitions")>();
@@ -31,6 +36,7 @@ vi.mock("@/modules/projects/services/project-transitions", async (importOriginal
 
 import { ProjectError } from "@/modules/projects/services/project-errors";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
+import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { processedPaymentEvents } from "@/modules/payments/schema/processed-payment-events.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { closeProject } from "@/modules/projects/services/project.service";
@@ -71,6 +77,8 @@ let logs: ReturnType<typeof vi.spyOn>[];
 beforeEach(() => {
   inject.contractFailures = 0;
   holder.db = ctx.db;
+  transferMock.run.mockReset();
+  transferMock.run.mockResolvedValue(undefined);
   logs = [
     vi.spyOn(console, "error").mockImplementation(() => {}),
     vi.spyOn(console, "info").mockImplementation(() => {}),
@@ -456,5 +464,70 @@ describe("closeProject regression", () => {
       const s = await seed({ attempt: status });
       await expect(closeProject(client, s.projectId)).resolves.toBeDefined();
     }
+  });
+});
+
+const transferRows = (attemptId: string) =>
+  ctx.db.select().from(developerTransfers).where(eq(developerTransfers.paymentAttemptId, attemptId));
+
+describe("handleStripeEvent: developer transfer (011b AC11 to AC12)", () => {
+  it("creates exactly one pending transfer in the payment transaction and runs it post-commit", async () => {
+    const s = await seed();
+    transferMock.run.mockImplementation(async (attemptId: string) => {
+      // Post-commit: the payment and the transfer row are already visible.
+      expect((await attemptRow(attemptId)).status).toBe("completed_test");
+      expect(await transferRows(attemptId)).toHaveLength(1);
+    });
+    expect(await handleStripeEvent(completed(s))).toEqual({ result: "applied", reason: "completed" });
+    const rows = await transferRows(s.attemptId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: "pending", amountCents: PRICE, currency: "USD" });
+    expect(transferMock.run).toHaveBeenCalledTimes(1);
+    expect(transferMock.run).toHaveBeenCalledWith(s.attemptId);
+  });
+
+  it("completed_project_not_selected also creates the row and runs the transfer", async () => {
+    const s = await seed({ project: "closed" });
+    expect(await handleStripeEvent(completed(s))).toEqual({
+      result: "applied",
+      reason: "completed_project_not_selected",
+    });
+    expect(await transferRows(s.attemptId)).toHaveLength(1);
+    expect(transferMock.run).toHaveBeenCalledWith(s.attemptId);
+  });
+
+  it("a rollback leaves no transfer row and does not run the transfer", async () => {
+    const s = await seed();
+    inject.contractFailures = 1;
+    await expect(handleStripeEvent(completed(s))).rejects.toThrow("injected failure");
+    expect(await transferRows(s.attemptId)).toHaveLength(0);
+    expect(transferMock.run).not.toHaveBeenCalled();
+  });
+
+  it("does not run for duplicate, ignored, unhandled, discarded, failed or canceled", async () => {
+    const s = await seed();
+    const event = completed(s);
+    await handleStripeEvent(event);
+    transferMock.run.mockClear();
+    await handleStripeEvent(event); // duplicate
+    await handleStripeEvent(completed(s)); // ignored: attempt_not_pending
+    const other = await seed();
+    await handleStripeEvent(completed(other, { session: { payment_status: "unpaid" } })); // ignored
+    await handleStripeEvent(makeEvent("payment_intent.payment_failed", other)); // unhandled
+    await handleStripeEvent(completed(other, { livemode: true })); // discarded
+    await handleStripeEvent(makeEvent("checkout.session.async_payment_failed", other)); // failed
+    const third = await seed();
+    await handleStripeEvent(makeEvent("checkout.session.expired", third)); // canceled
+    expect(transferMock.run).not.toHaveBeenCalled();
+    expect(await transferRows(other.attemptId)).toHaveLength(0);
+    expect(await transferRows(third.attemptId)).toHaveLength(0);
+  });
+
+  it("a transfer that throws never changes the webhook result", async () => {
+    const s = await seed();
+    transferMock.run.mockRejectedValue(new Error("boom"));
+    expect(await handleStripeEvent(completed(s))).toEqual({ result: "applied", reason: "completed" });
+    expect((await attemptRow(s.attemptId)).status).toBe("completed_test");
+    expect(await transferRows(s.attemptId)).toHaveLength(1);
   });
 });

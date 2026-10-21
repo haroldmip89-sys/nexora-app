@@ -14,6 +14,7 @@ const PERMISSIONS: Record<Action, readonly Role[]> = {
   "payment.start": ["client"],
   "payment.read": ["client", "developer", "admin"],
   "payout.manage": ["developer"],
+  "transfer.retry": ["developer"],
   "profile.edit": ["developer"],
   "rating.create": ["client"],
 };

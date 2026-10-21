@@ -13,12 +13,22 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 type AccountLike = Record<string, unknown>;
+
+function userEntry() {
+  return { awaiting_action_from: "user", minimum_deadline: { status: "currently_due" } };
+}
+function transfers(status: string) {
+  return {
+    configuration: { recipient: { capabilities: { stripe_balance: { stripe_transfers: { status } } } } },
+  };
+}
 const stripeState = vi.hoisted(() => ({
   seq: 0,
   byKey: new Map<string, AccountLike>(),
   accounts: new Map<string, AccountLike>(),
   createCalls: [] as { params: Record<string, unknown>; options: { idempotencyKey?: string } }[],
   retrieveCalls: [] as string[],
+  retrieveParams: [] as unknown[],
   linkCalls: [] as Record<string, unknown>[],
   createError: null as unknown,
   createOverride: null as AccountLike | null,
@@ -32,6 +42,7 @@ const stripeState = vi.hoisted(() => ({
 vi.mock("@/lib/stripe", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/stripe")>();
   const client = {
+    v2: { core: {
     accounts: {
       create: async (
         params: Record<string, unknown>,
@@ -46,17 +57,18 @@ vi.mock("@/lib/stripe", async (importOriginal) => {
         if (existing) return existing;
         const account: AccountLike = {
           id: `acct_test_${++stripeState.seq}`,
-          details_submitted: false,
-          capabilities: { transfers: "inactive" },
-          requirements: { currently_due: ["individual.first_name"], past_due: [], disabled_reason: null },
+          livemode: false,
+          ...transfers("pending"),
+          requirements: { entries: [userEntry()] },
           metadata: (params as { metadata?: unknown }).metadata,
         };
         stripeState.byKey.set(key, account);
         stripeState.accounts.set(account.id as string, account);
         return account;
       },
-      retrieve: async (id: string) => {
+      retrieve: async (id: string, params?: unknown) => {
         stripeState.retrieveCalls.push(id);
+        stripeState.retrieveParams.push(params);
         if (stripeState.retrieveError) throw stripeState.retrieveError;
         if (stripeState.retrieveOverride) return stripeState.retrieveOverride;
         return stripeState.accounts.get(id);
@@ -66,9 +78,10 @@ vi.mock("@/lib/stripe", async (importOriginal) => {
       create: async (params: Record<string, unknown>) => {
         stripeState.linkCalls.push(params);
         if (stripeState.linkError) throw stripeState.linkError;
-        return { object: "account_link", url: stripeState.linkUrl };
+        return { object: "v2.core.account_link", url: stripeState.linkUrl };
       },
     },
+    } },
   };
   return {
     ...original,
@@ -87,10 +100,12 @@ import { users } from "@/modules/users/schema/users.table";
 import { ConnectedAccountError } from "./connected-account-errors";
 import {
   CONNECTED_ACCOUNT_COUNTRY,
+  CONNECTED_ACCOUNT_CURRENCY,
   ensureConnectedAccount,
   getConnectedAccountOverview,
   startOnboarding,
   syncConnectedAccount,
+  syncConnectedAccountForUser,
 } from "./connected-account.service";
 
 type Ctx = Awaited<ReturnType<typeof createTestDb>>;
@@ -154,6 +169,7 @@ beforeEach(() => {
   stripeState.accounts.clear();
   stripeState.createCalls.length = 0;
   stripeState.retrieveCalls.length = 0;
+  stripeState.retrieveParams.length = 0;
   stripeState.linkCalls.length = 0;
   stripeState.createError = null;
   stripeState.createOverride = null;
@@ -192,20 +208,28 @@ describe("ensureConnectedAccount", () => {
     const dev = await seedUser("developer");
     const { rowId } = await ensureConnectedAccount(dev);
     const [call] = stripeState.createCalls;
-    expect(call.options).toEqual({ idempotencyKey: `nexora:connect-account:${rowId}` });
+    expect(call.options).toEqual({ idempotencyKey: `nexora:connect-account-v2:${rowId}` });
     expect(call.params).toEqual({
-      country: CONNECTED_ACCOUNT_COUNTRY,
-      controller: {
-        stripe_dashboard: { type: "express" },
-        fees: { payer: "application" },
-        losses: { payments: "application" },
-        requirement_collection: "stripe",
+      contact_email: dev.email,
+      identity: { country: CONNECTED_ACCOUNT_COUNTRY },
+      dashboard: "express",
+      defaults: {
+        currency: CONNECTED_ACCOUNT_CURRENCY,
+        responsibilities: { fees_collector: "application", losses_collector: "application" },
       },
-      capabilities: { transfers: { requested: true } },
+      configuration: {
+        recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+      },
+      include: ["configuration.recipient", "requirements"],
       metadata: { nexora_user_id: dev.id },
     });
+    expect(CONNECTED_ACCOUNT_COUNTRY).toBe("us");
+    expect(call.params).not.toHaveProperty("controller");
+    expect(call.params).not.toHaveProperty("capabilities");
+    expect(call.params).not.toHaveProperty("country");
     expect(call.params).not.toHaveProperty("type");
     expect(call.params).not.toHaveProperty("email");
+    expect(call.params).not.toHaveProperty("display_name");
     expect(JSON.stringify(call.params)).not.toContain("card_payments");
   });
 
@@ -218,7 +242,7 @@ describe("ensureConnectedAccount", () => {
     expect(rows).toHaveLength(1);
     expect(stripeState.accounts.size).toBe(1);
     const keys = new Set(stripeState.createCalls.map((c) => c.options.idempotencyKey));
-    expect(keys).toEqual(new Set([`nexora:connect-account:${rows[0].id}`]));
+    expect(keys).toEqual(new Set([`nexora:connect-account-v2:${rows[0].id}`]));
     const params = new Set(stripeState.createCalls.map((c) => JSON.stringify(c.params)));
     expect(params.size).toBe(1);
     const [a, b] = results as PromiseFulfilledResult<{ stripeAccountId: string }>[];
@@ -289,8 +313,7 @@ describe("ensureConnectedAccount", () => {
     const dev = await seedUser("developer");
     stripeState.createOverride = {
       id: "acct_override_1",
-      details_submitted: true,
-      capabilities: { transfers: "active" },
+      ...transfers("active"),
     };
     const result = await ensureConnectedAccount(dev);
     expect(result.status).toBe("active");
@@ -370,10 +393,14 @@ describe("startOnboarding", () => {
     expect(stripeState.linkCalls).toEqual([
       {
         account: row.stripeAccountId,
-        type: "account_onboarding",
-        refresh_url: "http://localhost:3000/dashboard/payouts/onboarding/refresh",
-        return_url: "http://localhost:3000/dashboard/payouts/onboarding/return",
-        collection_options: { fields: "currently_due" },
+        use_case: {
+          type: "account_onboarding",
+          account_onboarding: {
+            refresh_url: "http://localhost:3000/dashboard/payouts/onboarding/refresh",
+            return_url: "http://localhost:3000/dashboard/payouts/onboarding/return",
+            collection_options: { fields: "currently_due" },
+          },
+        },
       },
     ]);
     expect(JSON.stringify(row)).not.toContain("stripe.com");
@@ -401,8 +428,7 @@ describe("startOnboarding", () => {
     const dev = await seedUser("developer");
     stripeState.createOverride = {
       id: "acct_override_2",
-      details_submitted: true,
-      capabilities: { transfers: "active" },
+      ...transfers("active"),
     };
     await expectCode(startOnboarding(dev), "ACCOUNT_ALREADY_ACTIVE");
     expect(stripeState.linkCalls).toHaveLength(0);
@@ -441,26 +467,14 @@ describe("syncConnectedAccount", () => {
   });
 
   const cases: [string, AccountLike, string][] = [
-    ["not_started", { details_submitted: false, capabilities: { transfers: "inactive" } }, "not_started"],
+    ["not_started", { ...transfers("pending"), requirements: { entries: [userEntry()] } }, "not_started"],
     [
       "pending",
-      {
-        details_submitted: true,
-        capabilities: { transfers: "pending" },
-        requirements: { currently_due: [], past_due: [], disabled_reason: null },
-      },
+      { ...transfers("pending"), requirements: { entries: [{ awaiting_action_from: "stripe" }] } },
       "pending",
     ],
-    [
-      "restricted",
-      {
-        details_submitted: true,
-        capabilities: { transfers: "inactive" },
-        requirements: { currently_due: ["x"], past_due: [], disabled_reason: null },
-      },
-      "restricted",
-    ],
-    ["active", { details_submitted: true, capabilities: { transfers: "active" } }, "active"],
+    ["restricted", { ...transfers("restricted"), requirements: { entries: [] } }, "restricted"],
+    ["active", { ...transfers("active"), requirements: { entries: [userEntry()] } }, "active"],
   ];
   it.each(cases)("updates status to %s and rereading is idempotent", async (_n, patch, expected) => {
     const dev = await seedUser("developer");
@@ -475,17 +489,33 @@ describe("syncConnectedAccount", () => {
     expect((await rowOf(dev)).status).toBe(expected);
   });
 
+  it("retrieves with the mandatory include", async () => {
+    const dev = await seedUser("developer");
+    await ensureConnectedAccount(dev);
+    await syncConnectedAccount(dev);
+    expect(stripeState.retrieveParams).toEqual([
+      { include: ["configuration.recipient", "requirements"] },
+    ]);
+  });
+
   it("allows any transition (active back to restricted)", async () => {
     const dev = await seedUser("developer");
     const { stripeAccountId } = await ensureConnectedAccount(dev);
     const account = stripeState.accounts.get(stripeAccountId)!;
-    Object.assign(account, { details_submitted: true, capabilities: { transfers: "active" } });
+    Object.assign(account, transfers("active"));
     await syncConnectedAccount(dev);
-    Object.assign(account, {
-      capabilities: { transfers: "inactive" },
-      requirements: { currently_due: [], past_due: ["x"], disabled_reason: "requirements.past_due" },
-    });
+    Object.assign(account, transfers("restricted"));
     expect(await syncConnectedAccount(dev)).toEqual({ status: "restricted" });
+  });
+
+  it("livemode true gives ACCOUNT_UNAVAILABLE without writing", async () => {
+    const dev = await seedUser("developer");
+    const { stripeAccountId } = await ensureConnectedAccount(dev);
+    const before = await rowOf(dev);
+    stripeState.retrieveOverride = { id: stripeAccountId, livemode: true, ...transfers("active") };
+    await expectCode(syncConnectedAccount(dev), "ACCOUNT_UNAVAILABLE");
+    expect(await rowOf(dev)).toEqual(before);
+    expect(loggedText()).not.toContain("acct_");
   });
 
   it("a definitive rejection gives ACCOUNT_UNAVAILABLE without writing", async () => {
@@ -512,8 +542,7 @@ describe("syncConnectedAccount", () => {
     const before = await rowOf(dev);
     stripeState.retrieveOverride = {
       id: stripeAccountId,
-      details_submitted: true,
-      capabilities: { transfers: "active" },
+      ...transfers("active"),
       metadata: { nexora_user_id: "someone-else" },
     };
     await expectCode(syncConnectedAccount(dev), "ACCOUNT_UNAVAILABLE");
@@ -525,9 +554,50 @@ describe("syncConnectedAccount", () => {
     const dev = await seedUser("developer");
     await ensureConnectedAccount(dev);
     const before = await rowOf(dev);
-    stripeState.retrieveOverride = { id: "acct_other", details_submitted: true };
+    stripeState.retrieveOverride = { id: "acct_other", ...transfers("active") };
     await expectCode(syncConnectedAccount(dev), "ACCOUNT_UNAVAILABLE");
     expect(await rowOf(dev)).toEqual(before);
+  });
+});
+
+describe("syncConnectedAccountForUser", () => {
+  it("without account returns not_started and no acct_ without calling Stripe", async () => {
+    const dev = await seedUser("developer");
+    expect(await syncConnectedAccountForUser(dev.id)).toEqual({
+      status: "not_started",
+      stripeAccountId: null,
+    });
+    expect(stripeState.retrieveCalls).toHaveLength(0);
+  });
+
+  it("refreshes the cached status and returns the stored account id; the actor wrapper only returns the status", async () => {
+    const dev = await seedUser("developer");
+    const { stripeAccountId } = await ensureConnectedAccount(dev);
+    Object.assign(stripeState.accounts.get(stripeAccountId)!, transfers("active"));
+
+    expect(await syncConnectedAccountForUser(dev.id)).toEqual({ status: "active", stripeAccountId });
+    expect((await rowOf(dev)).status).toBe("active");
+    expect(await syncConnectedAccount(dev)).toEqual({ status: "active" });
+  });
+
+  it("keeps the same defenses and error codes (owner mismatch, live, Stripe errors, config)", async () => {
+    const dev = await seedUser("developer");
+    const { stripeAccountId } = await ensureConnectedAccount(dev);
+    stripeState.retrieveOverride = {
+      id: stripeAccountId,
+      ...transfers("active"),
+      metadata: { nexora_user_id: "someone-else" },
+    };
+    await expectCode(syncConnectedAccountForUser(dev.id), "ACCOUNT_UNAVAILABLE");
+    stripeState.retrieveOverride = { id: stripeAccountId, livemode: true, ...transfers("active") };
+    await expectCode(syncConnectedAccountForUser(dev.id), "ACCOUNT_UNAVAILABLE");
+    stripeState.retrieveOverride = null;
+    stripeState.retrieveError = stripeError("StripeAPIError");
+    await expectCode(syncConnectedAccountForUser(dev.id), "STRIPE_UNAVAILABLE");
+    stripeState.retrieveError = null;
+    stripeState.configError = new StripeConfigError("STRIPE_SECRET_KEY is missing.");
+    await expectCode(syncConnectedAccountForUser(dev.id), "STRIPE_NOT_CONFIGURED");
+    expect((await rowOf(dev)).status).toBe("not_started");
   });
 });
 
@@ -556,6 +626,19 @@ describe("getConnectedAccountOverview", () => {
 });
 
 describe("logs", () => {
+  it("logs the sanitized Stripe message of a 400 on account create", async () => {
+    const dev = await seedUser("developer");
+    stripeState.createError = stripeError("StripeInvalidRequestError", {
+      message: "Invalid identity.country for acct_123 see https://stripe.com/docs a@b.com",
+    });
+    await expectCode(ensureConnectedAccount(dev), "STRIPE_NOT_CONFIGURED");
+    const text = loggedText();
+    expect(text).toContain("Invalid identity.country for [redacted]");
+    expect(text).not.toContain("acct_");
+    expect(text).not.toContain("stripe.com");
+    expect(text).not.toContain("a@b.com");
+  });
+
   it("never print account ids, link URLs, emails or keys across the flows", async () => {
     const dev = await seedUser("developer");
     await startOnboarding(dev);
