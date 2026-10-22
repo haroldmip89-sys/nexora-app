@@ -96,6 +96,7 @@ Prepara un proyecto publicado con la cuenta Cliente.
 - [ ] "Retirar" pide confirmación y la deja en "Retirada" (solo lectura).
 - [ ] Después de retirar, **no** se puede enviar otra propuesta a ese proyecto (aparece la nota explicativa).
 - [ ] Enviar una segunda propuesta al mismo proyecto sin retirar la primera no es posible.
+- [ ] **Cobros requeridos (011b, mejora):** un desarrollador sin cuenta de cobros `active` ve, en el detalle de un proyecto publicado, "Para enviar propuestas debes configurar tus cobros de prueba." con el enlace a `/dashboard/payouts` en lugar del formulario. Tras activar la cuenta ("Actualizar estado"), el formulario aparece.
 - [ ] `/dashboard/proposals` lista tus propuestas, las pestañas por estado filtran, y "Editar" lleva al formulario del detalle.
 - [ ] En `/dashboard/proposals` el título del proyecto es un enlace solo si el proyecto sigue publicado.
 
@@ -399,8 +400,8 @@ Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con
 
 ### A verificar (no comprobables sin red; ciérralos tú)
 
-- [ ] (a) `transfers.create` con `source_transaction` (cargo del PaymentIntent) y `destination` = cuenta v2 se acepta. La prueba verificada en 8b (g) fue sin `source_transaction`.
-- [ ] (b) Con `source_transaction` la transferencia no falla por saldo insuficiente aunque el cargo aún no esté disponible.
+- [x] (a) `transfers.create` con `source_transaction` (cargo del PaymentIntent) y `destination` = cuenta v2 se acepta. La prueba verificada en 8b (g) fue sin `source_transaction`. **Verificado 2026-10-21** (proyecto SportSpace, 3.000 USD).
+- [x] (b) Con `source_transaction` la transferencia no falla por saldo insuficiente aunque el cargo aún no esté disponible. **Verificado 2026-10-21** (el pago recién hecho se transfirió sin error de saldo).
 - [ ] (c) La transferencia hereda el `transfer_group` del PaymentIntent (`group_pi_...`) y Stripe la acepta sin enviarlo explícitamente.
 - [ ] (d) Repetir `transfers.create` con la misma clave devuelve el mismo `tr_...`; tras un rechazo 4xx la misma clave repite el error (base de la generación en la clave).
 - [ ] (e) Ventana real de la clave de idempotencia de `transfers.create` (se asume al menos 24 h).
@@ -410,7 +411,7 @@ Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con
 ### Pasos
 
 1. [ ] **Camino feliz:** con A en cuenta `active`, C paga con `4242 4242 4242 4242`. En la página de pago de C el paso 4 pasa a "Completado" con "Transferencia de prueba completada" y la etiqueta "Transferencia de prueba, no es dinero real". En `/dashboard/payouts` de A aparece la transferencia con el importe, el estado "Completada en Test Mode" y la etiqueta de prueba. En Neon: una fila con `status = 'completed_test'`, `stripe_transfer_id` `tr_...` y `completed_at`.
-2. [ ] **Cuenta no activa -> activa:** con A sin onboarding completo (o `restricted`), C paga. La transferencia queda "Pendiente" con el motivo "Tu cuenta de cobros aún no está activa..." y no se llama a `transfers.create`. A completa el onboarding y vuelve (o pulsa "Actualizar estado" con la cuenta `active`): la transferencia pasa sola a "Completada en Test Mode".
+2. [ ] **Desarrollador sin cobros activos (propuestas ya enviadas antes de la mejora):** con A sin onboarding completo y una propuesta aceptada, C abre la página de pago: no hay botón de pago y dice "El desarrollador aún no configuró sus cobros de prueba. Podrás pagar cuando lo haga." A completa el onboarding ("Actualizar estado" con la cuenta `active`) y C recarga: ya aparece "Pagar con Stripe (prueba)". (Si la cuenta pasa a no activa después del pago, la transferencia queda "Pendiente" y se envía sola al reactivarse.)
 3. [ ] **Reintento manual:** con una fila `pending` (p. ej. desconecta la red o quita temporalmente `STRIPE_SECRET_KEY` solo durante el pago), restaura y pulsa "Reintentar transferencia" en `/dashboard/payouts`: el botón muestra "Reintentando...", el resultado se anuncia y la fila pasa a "Completada en Test Mode". El botón no aparece si todas están completadas.
 4. [ ] **`failed`:** provoca un rechazo definitivo (p. ej. borra la cuenta de A en el Dashboard y recréala con otro `acct_`, o fuerza un destino inválido en una copia local). La fila queda "Fallida" con el motivo amigable; "Reintentar transferencia" sube `retry_generation` (la clave pasa a `nexora:transfer:<id>:1`) y vuelve a llamar. El cliente ve "Transferencia de prueba fallida; el desarrollador puede reintentarla" y no tiene botón de reintento.
 5. [ ] **Idempotencia:** envía dos veces el mismo evento con `stripe events resend <evt_...>` y pulsa "Reintentar transferencia" varias veces seguidas (o en dos pestañas): queda una sola fila y una sola transferencia en el Dashboard; el evento repetido entra como `duplicate`.

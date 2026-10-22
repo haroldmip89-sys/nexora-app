@@ -263,6 +263,8 @@ Los ids son los de la spec 011b; no sustituyen a los D-x de otras specs.
 | 011b-D-C | Clave de idempotencia determinista `nexora:transfer:<transferId>:<retryGeneration>`; solo el reintento manual tras `failed` incrementa la generación | 011b |
 | 011b-D-D | Estados `pending`, `completed_test`, `failed`; `failed` solo por rechazo definitivo; lo ambiguo o con precondición no cumplida es `pending` | 011b |
 | 011b-D-E | Se relee la cuenta conectada antes de transferir; si no está `active`, la fila queda `pending` / `ACCOUNT_NOT_ACTIVE` | 011b |
+| 011b-mejora | El pago no se puede iniciar si el desarrollador ganador no tiene cuenta conectada `active` (`DEVELOPER_PAYOUTS_NOT_READY`); la transferencia `pending` queda para cuentas que dejen de estar activas tras el pago | 011b |
+| 011b-mejora-2 | El desarrollador no puede enviar una propuesta sin cuenta conectada `active` (`PAYOUTS_NOT_READY`, `createProposal`). `proposals` importa solo la **tabla** `connected_accounts` de `payments` (lectura); `payments` ya importa tablas de `proposals`: ciclo entre módulos pero sin ciclo de archivos, aceptado en el MVP | 011b |
 | 011b-D-F | Reintento automático sin cron (tras el pago, al volver del onboarding o "Actualizar estado" con cuenta `active`) y manual del desarrollador; sin barrido global | 011b |
 | 011b-D-G | Pago completado con proyecto no `proposal_selected`: la transferencia se crea igual | 011b |
 | 011b-D-H | Ejecución en línea tras el commit (no `after()`); una falla de la transferencia nunca hace fallar el webhook | 011b |

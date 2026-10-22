@@ -131,11 +131,12 @@ describe("acceptPendingProposal", () => {
 describe("proposal error maps", () => {
   const codes = Object.keys(PROPOSAL_ERROR_STATUS) as ProposalErrorCode[];
 
-  it("covers the six domain codes with status 409", () => {
+  it("covers the seven domain codes with status 409", () => {
     expect([...codes].sort()).toEqual([
       "ALREADY_PROPOSED",
       "ALREADY_SELECTED",
       "INVALID_STATE",
+      "PAYOUTS_NOT_READY",
       "PROJECT_NOT_OPEN",
       "PROPOSAL_CHANGED",
       "RESEND_NOT_ALLOWED",

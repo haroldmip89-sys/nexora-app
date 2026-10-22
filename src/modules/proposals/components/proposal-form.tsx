@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { Fragment, useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +58,8 @@ export function ProposalForm(props: Props) {
 
   const values = state.status === "error" ? state.values : initialValues(props);
   const errors = state.status === "error" ? state.fieldErrors : {};
+  // Uncontrolled fields: remount them when the server returns the submitted values, so `defaultValue` never changes on a mounted input.
+  const fieldsKey = state.status === "error" ? JSON.stringify(state.values) : "initial";
   const L = PROPOSAL_LIMITS;
 
   return (
@@ -73,6 +75,7 @@ export function ProposalForm(props: Props) {
         ) : null}
       </div>
 
+      <Fragment key={fieldsKey}>
       <FormField
         name="priceUsd"
         label="Precio (USD)"
@@ -142,6 +145,8 @@ export function ProposalForm(props: Props) {
           proyecto.
         </p>
       ) : null}
+
+      </Fragment>
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         {props.mode === "edit" ? (

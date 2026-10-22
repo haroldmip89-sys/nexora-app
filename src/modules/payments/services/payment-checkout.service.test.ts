@@ -78,6 +78,7 @@ vi.mock("@/lib/stripe", async (importOriginal) => {
 import { StripeConfigError } from "@/lib/stripe";
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { closeProject } from "@/modules/projects/services/project.service";
@@ -168,11 +169,19 @@ async function seedProject(status: ProjectStatus = "proposal_selected", owner: A
 }
 
 /** Project in proposal_selected with an accepted proposal (+ a rejected one with another price). */
-async function seedSelected(over: { withWinner?: boolean } = {}) {
+async function seedSelected(over: { withWinner?: boolean; payouts?: "active" | "pending" | "none" } = {}) {
   const project = await seedProject("proposal_selected");
   if (over.withWinner === false) return { project, accepted: null };
   const dev = await seedUser("developer");
   const other = await seedUser("developer");
+  const payouts = over.payouts ?? "active";
+  if (payouts !== "none") {
+    await ctx.db.insert(connectedAccounts).values({
+      userId: dev.id,
+      stripeAccountId: `acct_test_${dev.id.slice(0, 8)}`,
+      status: payouts,
+    });
+  }
   const [accepted] = await ctx.db
     .insert(proposals)
     .values({ projectId: project.id, developerId: dev.id, priceCents: ACCEPTED_PRICE, timelineWeeks: 3, description: "d", status: "accepted" })
@@ -311,6 +320,16 @@ describe("createCheckoutForProject: eligibility and authorization", () => {
     expect(await attemptsOf(project.id)).toHaveLength(0);
     expect(stripeState.createCalls).toHaveLength(0);
   });
+
+  it.each(["none", "pending"] as const)(
+    "rejects with DEVELOPER_PAYOUTS_NOT_READY when the winner payouts are %s",
+    async (payouts) => {
+      const { project } = await seedSelected({ payouts });
+      await rejectsWith(createCheckoutForProject(client, project.id), "DEVELOPER_PAYOUTS_NOT_READY", PaymentError);
+      expect(await attemptsOf(project.id)).toHaveLength(0);
+      expect(stripeState.createCalls).toHaveLength(0);
+    },
+  );
 
   it.each([["developer"], ["admin"]] as const)("%s gets FORBIDDEN without touching DB or Stripe", async (who) => {
     const actor = who === "developer" ? developer : admin;

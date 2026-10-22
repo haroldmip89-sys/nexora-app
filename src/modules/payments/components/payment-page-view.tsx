@@ -93,8 +93,11 @@ function deriveProgress(overview: ProjectPaymentOverview): PaymentProgressProps 
 type Props = { overview: ProjectPaymentOverview; returnNotice?: ReturnNotice };
 
 export function PaymentPageView({ overview, returnNotice }: Props) {
-  const { project, proposal, attempt, canStart, canResume, transfer } = overview;
-  const closedWithoutPayment = !canStart && !canResume && attempt?.status !== "completed_test";
+  const { project, proposal, attempt, canStart, canResume, transfer, developerPayoutsReady } = overview;
+  const awaitingDeveloper =
+    !developerPayoutsReady && project.status === "proposal_selected" && !canResume && attempt?.status !== "completed_test";
+  const closedWithoutPayment =
+    !canStart && !canResume && !awaitingDeveloper && attempt?.status !== "completed_test";
   const buttonLabel = canResume
     ? "Continuar en Stripe"
     : attempt
@@ -192,9 +195,11 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
         <p className="mt-2 text-sm text-[#202522]">
           {attempt
             ? attemptText(attempt.status, project.status, transfer)
-            : closedWithoutPayment
-              ? "Este proyecto ya no admite un nuevo pago de prueba."
-              : "Aún no iniciaste el pago de prueba."}
+            : awaitingDeveloper
+              ? "El desarrollador aún no configuró sus cobros de prueba. Podrás pagar cuando lo haga."
+              : closedWithoutPayment
+                ? "Este proyecto ya no admite un nuevo pago de prueba."
+                : "Aún no iniciaste el pago de prueba."}
         </p>
         {attempt?.status === "completed_test" ? (
           <p className="mt-2 text-xs text-[#535E56]">{TRANSFER_TEST_NOTICE}</p>

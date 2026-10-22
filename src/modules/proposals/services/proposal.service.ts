@@ -5,6 +5,7 @@ import { AuthError } from "@/modules/auth/services/auth-errors";
 import { requireOwnership } from "@/modules/auth/services/current-user.service";
 import { can } from "@/modules/auth/services/permissions";
 import type { Action, AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import { proposals } from "@/modules/proposals/schema/proposals.table";
 import {
@@ -83,6 +84,14 @@ export async function createProposal(
       .for("share");
     if (!project || project.status === "draft") throw new AuthError("NOT_FOUND");
     if (project.status !== "published") throw new ProposalError("PROJECT_NOT_OPEN");
+
+    // A proposal that wins could not be paid out without an active connected account (cached status).
+    const [payout] = await tx
+      .select({ status: connectedAccounts.status })
+      .from(connectedAccounts)
+      .where(eq(connectedAccounts.userId, actor.id))
+      .limit(1);
+    if (payout?.status !== "active") throw new ProposalError("PAYOUTS_NOT_READY");
 
     const [row] = await tx
       .insert(proposals)
@@ -210,6 +219,17 @@ export async function getMyProposalForProject(
     .where(and(eq(proposals.projectId, projectId), eq(proposals.developerId, actor.id)))
     .limit(1);
   return row ?? null;
+}
+
+/** true when the developer can receive transfers (cached status), so new proposals are allowed. */
+export async function hasActivePayouts(actor: AuthUser): Promise<boolean> {
+  assertDeveloperReader(actor);
+  const [row] = await db
+    .select({ status: connectedAccounts.status })
+    .from(connectedAccounts)
+    .where(eq(connectedAccounts.userId, actor.id))
+    .limit(1);
+  return row?.status === "active";
 }
 
 async function assertProjectOwner(actor: AuthUser, projectId: string): Promise<void> {

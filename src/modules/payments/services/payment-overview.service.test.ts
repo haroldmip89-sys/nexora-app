@@ -11,6 +11,7 @@ vi.mock("@/lib/db/client", () => ({
 
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
@@ -49,7 +50,7 @@ afterAll(async () => {
   await ctx.client.close();
 });
 
-async function seedProject(status: ProjectStatus, withWinner = true) {
+async function seedProject(status: ProjectStatus, withWinner = true, payouts: "active" | "pending" | "none" = "active") {
   const [project] = await ctx.db
     .insert(projects)
     .values({
@@ -68,6 +69,13 @@ async function seedProject(status: ProjectStatus, withWinner = true) {
   if (!withWinner) return project;
   const dev = await seedUser("developer", "Dana Developer");
   const other = await seedUser("developer");
+  if (payouts !== "none") {
+    await ctx.db.insert(connectedAccounts).values({
+      userId: dev.id,
+      stripeAccountId: `acct_test_${dev.id.slice(0, 8)}`,
+      status: payouts,
+    });
+  }
   const [accepted] = await ctx.db
     .insert(proposals)
     .values({ projectId: project.id, developerId: dev.id, priceCents: 150_000, timelineWeeks: 3, description: "d", status: "accepted" })
@@ -137,10 +145,22 @@ describe("getProjectPaymentOverview", () => {
       proposal: { developerName: "Dana Developer", priceCents: 150_000, currency: "USD", timelineWeeks: 3 },
       attempt: null,
       canStart: true,
+      developerPayoutsReady: true,
       canResume: false,
       transfer: null,
     });
   });
+
+  it.each(["none", "pending"] as const)(
+    "developer payouts %s: canStart false, developerPayoutsReady false",
+    async (payouts) => {
+      const project = await seedProject("proposal_selected", true, payouts);
+      const overview = await getProjectPaymentOverview(client, project.id);
+      expect(overview.developerPayoutsReady).toBe(false);
+      expect(overview.canStart).toBe(false);
+      expect(overview.canResume).toBe(false);
+    },
+  );
 
   it("pending: canResume true, canStart false", async () => {
     const project = await seedProject("proposal_selected");
@@ -190,7 +210,7 @@ describe("getProjectPaymentOverview", () => {
     const project = await seedProject("proposal_selected");
     await seedAttempt(project.id, "pending", at(1));
     const overview = await getProjectPaymentOverview(client, project.id);
-    expect(Object.keys(overview).sort()).toEqual(["attempt", "canResume", "canStart", "project", "proposal", "transfer"]);
+    expect(Object.keys(overview).sort()).toEqual(["attempt", "canResume", "canStart", "developerPayoutsReady", "project", "proposal", "transfer"]);
     expect(Object.keys(overview.project).sort()).toEqual(["id", "status", "title"]);
     expect(Object.keys(overview.proposal).sort()).toEqual(["currency", "developerName", "priceCents", "timelineWeeks"]);
     expect(Object.keys(overview.attempt!).sort()).toEqual(["amountCents", "createdAt", "status", "updatedAt"]);

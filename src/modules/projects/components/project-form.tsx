@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { Fragment, useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,6 +77,8 @@ export function ProjectForm({ project, technologies }: Props) {
   const initial = toFormValues(project);
   const values = state.status === "error" ? state.values : initial;
   const errors = state.status === "error" ? state.fieldErrors : {};
+  // Uncontrolled fields: remount them when the server returns the submitted values, so `defaultValue` never changes on a mounted input.
+  const fieldsKey = state.status === "error" ? JSON.stringify(state.values) : "initial";
   const L = PROJECT_LIMITS;
 
   return (
@@ -104,6 +106,7 @@ export function ProjectForm({ project, technologies }: Props) {
         </p>
       ) : null}
 
+      <Fragment key={fieldsKey}>
       <FormField name="title" label="Título del proyecto" error={errors.title}>
         {({ id, describedBy, invalid }) => (
           <Input
@@ -242,6 +245,8 @@ export function ProjectForm({ project, technologies }: Props) {
         hint="Elige entre 1 y 10"
         error={errors.technologies}
       />
+
+      </Fragment>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Link

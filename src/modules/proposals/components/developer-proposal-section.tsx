@@ -4,7 +4,7 @@ import { formatBudgetRange } from "@/modules/projects/components/public-project-
 import { getPublicProject } from "@/modules/projects/services/public-catalog.service";
 import { OwnProposalCard } from "@/modules/proposals/components/own-proposal-card";
 import { ProposalForm } from "@/modules/proposals/components/proposal-form";
-import { getMyProposalForProject } from "@/modules/proposals/services/proposal.service";
+import { getMyProposalForProject, hasActivePayouts } from "@/modules/proposals/services/proposal.service";
 import type { DeveloperProposal } from "@/modules/proposals/types/proposal.types";
 
 const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
@@ -20,12 +20,14 @@ function Note({ children }: { children: React.ReactNode }) {
 export async function DeveloperProposalSection({ projectId }: { projectId: string }) {
   let proposal: DeveloperProposal | null = null;
   let budgetHint: string | undefined;
+  let payoutsReady = true;
 
   try {
     const actor = await getCurrentUser();
     if (!actor) return null;
     proposal = await getMyProposalForProject(actor, projectId);
     if (!proposal) {
+      payoutsReady = await hasActivePayouts(actor);
       const project = await getPublicProject(projectId);
       if (project) {
         budgetHint = formatBudgetRange(project.budgetMinCents, project.budgetMaxCents);
@@ -42,6 +44,13 @@ export async function DeveloperProposalSection({ projectId }: { projectId: strin
       </h2>
       {proposal ? (
         <OwnProposalCard proposal={proposal} />
+      ) : !payoutsReady ? (
+        <p className="rounded-[10px] bg-[#DCE6DE] p-3 text-sm text-[#183D30]">
+          Para enviar propuestas debes configurar tus cobros de prueba.{" "}
+          <Link href="/dashboard/payouts" className={`rounded-sm font-medium underline ${FOCUS}`}>
+            Configurar cobros de prueba
+          </Link>
+        </p>
       ) : (
         <ProposalForm mode="create" projectId={projectId} budgetHint={budgetHint} />
       )}

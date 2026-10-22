@@ -5,6 +5,7 @@ import { AuthError } from "@/modules/auth/services/auth-errors";
 import { requireOwnership } from "@/modules/auth/services/current-user.service";
 import { can } from "@/modules/auth/services/permissions";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { developerTransfers } from "@/modules/payments/schema/developer-transfers.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import type { TransferReason } from "@/modules/payments/types/developer-transfer.types";
@@ -39,6 +40,7 @@ export async function getProjectPaymentOverview(
 
   const [winner] = await db
     .select({
+      developerId: proposals.developerId,
       developerName: users.displayName,
       priceCents: proposals.priceCents,
       timelineWeeks: proposals.timelineWeeks,
@@ -80,6 +82,13 @@ export async function getProjectPaymentOverview(
     .orderBy(desc(paymentAttempts.createdAt), desc(paymentAttempts.id))
     .limit(1);
 
+  const [payout] = await db
+    .select({ status: connectedAccounts.status })
+    .from(connectedAccounts)
+    .where(eq(connectedAccounts.userId, winner.developerId))
+    .limit(1);
+  const developerPayoutsReady = payout?.status === "active";
+
   const selected = project.status === "proposal_selected";
   const attempt = latest ?? null;
   return {
@@ -91,7 +100,11 @@ export async function getProjectPaymentOverview(
       timelineWeeks: winner.timelineWeeks,
     },
     attempt,
-    canStart: selected && (!attempt || attempt.status === "failed" || attempt.status === "canceled"),
+    canStart:
+      selected &&
+      developerPayoutsReady &&
+      (!attempt || attempt.status === "failed" || attempt.status === "canceled"),
+    developerPayoutsReady,
     canResume: selected && attempt?.status === "pending",
     transfer: transferRow
       ? {

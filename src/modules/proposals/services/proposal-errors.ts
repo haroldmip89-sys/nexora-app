@@ -9,7 +9,8 @@ export type ProposalErrorCode =
   | "RESEND_NOT_ALLOWED"
   | "INVALID_STATE"
   | "ALREADY_SELECTED"
-  | "PROPOSAL_CHANGED";
+  | "PROPOSAL_CHANGED"
+  | "PAYOUTS_NOT_READY";
 
 export type ProposalErrorStatus = 409;
 
@@ -20,6 +21,7 @@ export const PROPOSAL_ERROR_STATUS: Record<ProposalErrorCode, ProposalErrorStatu
   INVALID_STATE: 409,
   ALREADY_SELECTED: 409,
   PROPOSAL_CHANGED: 409,
+  PAYOUTS_NOT_READY: 409,
 };
 
 /** User-facing message (es) per domain error code. */
@@ -31,6 +33,8 @@ export const PROPOSAL_ERROR_MESSAGES: Record<ProposalErrorCode, string> = {
   ALREADY_SELECTED: "Este proyecto ya tiene una propuesta seleccionada.",
   PROPOSAL_CHANGED:
     "El desarrollador modificó la propuesta después de que la viste. Revisa los cambios y vuelve a elegir.",
+  PAYOUTS_NOT_READY:
+    "Configura tus cobros de prueba para poder enviar propuestas.",
 };
 
 /**

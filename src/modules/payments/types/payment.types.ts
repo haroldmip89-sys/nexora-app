@@ -31,6 +31,8 @@ export type ProjectPaymentOverview = {
     updatedAt: Date;
   } | null;
   canStart: boolean;
+  /** The selected developer has an active connected account (cached status). */
+  developerPayoutsReady: boolean;
   canResume: boolean;
   /** Transfer of the latest completed attempt; null if none exists. */
   transfer: ProjectTransferSummary | null;

@@ -392,3 +392,9 @@ Orden: T0 -> T1 -> (T2 || T3) -> T4 -> reviewer.
 - Vista del desarrollador ganador en el detalle del proyecto y vista de admin (012/013).
 - Unificar los helpers de errores de 009/010 con `src/lib/stripe.ts`.
 - Reversión de transferencias, reembolsos y comisión: fuera del MVP.
+
+## Corrección posterior (2026-10-21, modo BUILD, decidida por el humano)
+
+Mejora: el pago ya no puede iniciarse si el desarrollador ganador no tiene cuenta conectada `active` (estado en caché de `connected_accounts`). `createCheckoutForProject` lanza `DEVELOPER_PAYOUTS_NOT_READY` al crear un intento nuevo (reanudar uno `pending` sigue permitido); `ProjectPaymentOverview` gana `developerPayoutsReady` y `canStart` lo exige; la página de pago muestra el aviso en lugar del botón. El estado `pending` / `ACCOUNT_NOT_ACTIVE` de la transferencia se conserva para cuentas que dejen de estar activas después del pago.
+
+Además, `createProposal` rechaza con `PAYOUTS_NOT_READY` al desarrollador sin cuenta `active` (el detalle del proyecto muestra un aviso con enlace a `/dashboard/payouts` en lugar del formulario). Las propuestas ya enviadas y las ediciones no se bloquean; el bloqueo del pago cubre esos casos.

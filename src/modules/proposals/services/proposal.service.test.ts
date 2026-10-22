@@ -12,6 +12,7 @@ vi.mock("@/lib/db/client", () => ({
 
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { projects } from "@/modules/projects/schema/projects.table";
 import * as projectService from "@/modules/projects/services/project.service";
 import type { ProjectStatus } from "@/modules/projects/types/project.types";
@@ -30,12 +31,17 @@ let developer: AuthUser;
 let otherDeveloper: AuthUser;
 let admin: AuthUser;
 
-async function seedUser(role: AuthUser["role"]): Promise<AuthUser> {
+async function seedUser(role: AuthUser["role"], payouts: "active" | "none" = "active"): Promise<AuthUser> {
   const n = ++seq;
   const [row] = await ctx.db
     .insert(users)
     .values({ clerkUserId: `clerk_p_${n}`, role, displayName: `User ${n}`, email: `p${n}@example.com` })
     .returning();
+  if (role === "developer" && payouts === "active") {
+    await ctx.db
+      .insert(connectedAccounts)
+      .values({ userId: row.id, stripeAccountId: `acct_test_${n}`, status: "active" });
+  }
   return { id: row.id, clerkUserId: row.clerkUserId, role, displayName: row.displayName, email: row.email };
 }
 
@@ -105,6 +111,18 @@ async function rejectsWith(p: Promise<unknown>, code: string, cls: typeof Propos
 }
 
 describe("createProposal", () => {
+  it("rejects a developer without active payouts with PAYOUTS_NOT_READY and inserts nothing", async () => {
+    const project = await seedProject();
+    const noPayouts = await seedUser("developer", "none");
+    await expect(service.createProposal(noPayouts, project.id, input())).rejects.toMatchObject({
+      code: "PAYOUTS_NOT_READY",
+    });
+    expect(await service.hasActivePayouts(noPayouts)).toBe(false);
+    expect(await service.hasActivePayouts(developer)).toBe(true);
+    const rows = await ctx.db.select().from(proposals).where(eq(proposals.projectId, project.id));
+    expect(rows).toHaveLength(0);
+  });
+
   it("inserts a pending proposal for the actor on a published project (AC1)", async () => {
     const project = await seedProject();
     const result = await service.createProposal(developer, project.id, input());

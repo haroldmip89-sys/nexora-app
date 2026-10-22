@@ -7,6 +7,7 @@ import { AuthError } from "@/modules/auth/services/auth-errors";
 import { requireOwnership } from "@/modules/auth/services/current-user.service";
 import { can } from "@/modules/auth/services/permissions";
 import type { AuthUser } from "@/modules/auth/types/auth.types";
+import { connectedAccounts } from "@/modules/payments/schema/connected-accounts.table";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 import { PaymentError } from "@/modules/payments/services/payment-errors";
 import type { CheckoutStartResult } from "@/modules/payments/types/payment.types";
@@ -111,7 +112,7 @@ async function prepareAttempt(actor: AuthUser, projectId: string): Promise<Prepa
 
     // Winning proposal second (FOR SHARE). Missing row = inconsistency.
     const [proposal] = await tx
-      .select({ id: proposals.id, priceCents: proposals.priceCents })
+      .select({ id: proposals.id, priceCents: proposals.priceCents, developerId: proposals.developerId })
       .from(proposalSelections)
       .innerJoin(
         proposals,
@@ -146,6 +147,15 @@ async function prepareAttempt(actor: AuthUser, projectId: string): Promise<Prepa
       if (active.status === "completed_test") throw new PaymentError("PAYMENT_ALREADY_ACTIVE");
       return { kind: "existing", attempt: active, ...base };
     }
+
+    // Do not collect money that cannot be transferred: the winner needs an active connected account
+    // (cached status; the transfer re-reads it from Stripe before moving anything).
+    const [payout] = await tx
+      .select({ status: connectedAccounts.status })
+      .from(connectedAccounts)
+      .where(eq(connectedAccounts.userId, proposal.developerId))
+      .limit(1);
+    if (payout?.status !== "active") throw new PaymentError("DEVELOPER_PAYOUTS_NOT_READY");
 
     // The attempt is committed before Stripe is called. A UNIQUE firing here is the safety net.
     const [created] = await tx
