@@ -8,9 +8,9 @@ const ONBOARDING: NavLinkItem = { href: "/onboarding", label: "Completar registr
 function roleLink(role: Role): NavLinkItem | null {
   switch (role) {
     case "client":
-      return { href: "/dashboard/projects", label: "Mis proyectos" };
+      return { href: "/dashboard", label: "Mi panel" };
     case "developer":
-      return { href: "/dashboard/proposals", label: "Mis propuestas" };
+      return { href: "/dashboard", label: "Mi panel" };
     case "admin":
       return null;
   }

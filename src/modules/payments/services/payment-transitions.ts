@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { paymentAttempts } from "@/modules/payments/schema/payment-attempts.table";
 
@@ -37,6 +37,25 @@ export async function cancelPendingAttempt(
   attemptId: string,
 ): Promise<boolean> {
   return setPendingStatus(executor, attemptId, "canceled");
+}
+
+/** pending -> canceled only while no Checkout session id is stored (nobody got the URL). */
+export async function cancelPendingAttemptWithoutSession(
+  executor: Executor,
+  attemptId: string,
+): Promise<boolean> {
+  const rows = await executor
+    .update(paymentAttempts)
+    .set({ status: "canceled" })
+    .where(
+      and(
+        eq(paymentAttempts.id, attemptId),
+        eq(paymentAttempts.status, "pending"),
+        isNull(paymentAttempts.stripeCheckoutSessionId),
+      ),
+    )
+    .returning({ id: paymentAttempts.id });
+  return rows.length === 1;
 }
 
 async function setPendingStatus(

@@ -4,8 +4,8 @@ import type { NavViewer } from "@/modules/auth/types/nav-viewer.types";
 
 describe("getDashboardLink", () => {
   const cases: [string, NavViewer, { href: string; label: string } | null][] = [
-    ["client", { kind: "user", role: "client" }, { href: "/dashboard/projects", label: "Mis proyectos" }],
-    ["developer", { kind: "user", role: "developer" }, { href: "/dashboard/proposals", label: "Mis propuestas" }],
+    ["client", { kind: "user", role: "client" }, { href: "/dashboard", label: "Mi panel" }],
+    ["developer", { kind: "user", role: "developer" }, { href: "/dashboard", label: "Mi panel" }],
     ["needs_onboarding", { kind: "needs_onboarding" }, { href: "/onboarding", label: "Completar registro" }],
     ["admin", { kind: "user", role: "admin" }, null],
     ["visitor", { kind: "visitor" }, null],

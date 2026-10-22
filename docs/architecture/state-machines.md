@@ -111,7 +111,7 @@ stateDiagram-v2
 | (creación) -> `pending` | Servidor, al pedir el cliente propietario iniciar el pago | Proyecto en `proposal_selected`; no existe otro intento `pending`/`completed_test` para el proyecto. Importe y moneda salen de la propuesta ganadora guardada en servidor |
 | `pending -> completed_test` | Webhook de Stripe verificado (firma válida) o reconciliación del servidor (D-F) | Evento de éxito o sesión pagada leída de la API. La página de retorno nunca dispara esta transición |
 | `pending -> failed` | Webhook de Stripe verificado | Evento de fallo de pago |
-| `pending -> canceled` | Webhook de Stripe verificado o reconciliación del servidor (D-F) (sesión expirada) o cancelación explícita del servidor al abandonar la sesión | La redirección de cancelación del navegador solo informa; no cambia el estado por sí sola |
+| `pending -> canceled` | Webhook de Stripe verificado o reconciliación del servidor (D-F) (sesión expirada) o cancelación explícita del servidor al abandonar la sesión, o cancelación explícita del cliente (spec 012): solo con la sesión `expired` confirmada por Stripe (`sessions.expire` o relectura autenticada), o con un intento sin sesión fuera de la ventana de reanudación | La redirección de cancelación del navegador solo informa; no cambia el estado por sí sola |
 
 Estados terminales: `completed_test`, `failed`, `canceled`.
 
@@ -178,7 +178,8 @@ Reglas:
 - Pago `failed` o `canceled`: el proyecto permanece en `proposal_selected` y puede crearse un nuevo intento.
 - Retorno del navegador a la URL de éxito antes del webhook: la UI muestra "verificando"; no se afirma pago completado.
 - Evento de pago confirmado cuando el proyecto ya no está en `proposal_selected` (p. ej. `closed`; solo por cierre forzado fuera de la app): el intento pasa a `completed_test`, el proyecto no cambia (ni se contrata ni se reabre), se registra una anomalía en el log y no se muestra como contratación (spec 010 RF6).
-- Cliente intenta cerrar un proyecto con pago `pending`: se rechaza con `PAYMENT_IN_PROGRESS`. El intento se resuelve por `checkout.session.expired` (`canceled`) o por "Actualizar estado" (spec 010); la cancelación explícita del cliente llega con la spec 012 (D2).
+- Cliente intenta cerrar un proyecto con pago `pending`: se rechaza con `PAYMENT_IN_PROGRESS`. El intento se resuelve por `checkout.session.expired` (`canceled`) o por "Actualizar estado" (spec 010); el cliente también puede cancelarlo de forma explícita desde su panel o la página de pago (spec 012, `cancelPendingPayment`): el servidor pide a Stripe expirar la sesión y solo pasa el intento a `canceled` si Stripe la reporta `expired` (nunca por suposición local); después puede reintentar el pago o cerrar el proyecto.
+- Cancelación explícita a la vez que el cliente completa el pago (spec 012): gana Stripe. Si `expire` tiene éxito, la sesión queda `expired`, no se cobra y el intento pasa a `canceled`. Si el pago gana, `expire` falla; el servidor no cancela, relee la sesión y aplica `completed_test` (con la transferencia y `contracted`), y responde que el pago se completó antes de poder cancelarlo. Un intento `completed_test` nunca pasa a `canceled`, y un `canceled` nunca se reabre.
 - Usuario sin fila interna aunque exista en Clerk (primer ingreso, sincronización pendiente): spec 004.
 - Casos límite de la cuenta conectada: ver §6.
 - Transferencia (spec 011b): webhook repetido (`duplicate`) no inserta ni transfiere (la fila ya existe); dos confirmaciones simultáneas dejan una fila y una sola transferencia en Stripe (misma clave de idempotencia).

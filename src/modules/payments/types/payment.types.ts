@@ -68,3 +68,14 @@ export type ReconcileResult = { outcome: "completed" | "canceled" | "unchanged" 
 export type RefreshActionResult =
   | { ok: true; outcome: ReconcileResult["outcome"] }
   | PaymentActionResult;
+
+/**
+ * canceled: the attempt is canceled (by this call, or already was after Stripe expired it).
+ * completed: the payment completed first (lost race, or already completed_test); nothing canceled.
+ * none: there was no pending attempt (none, or already failed/canceled).
+ */
+export type CancelPaymentResult = { outcome: "canceled" | "completed" | "none" };
+
+export type CancelPaymentActionResult =
+  | { ok: true; outcome: CancelPaymentResult["outcome"] }
+  | PaymentActionResult;

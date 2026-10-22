@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 011a, 011c, 018 y 019 (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 011c, 012, 013, 018 y 019 (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -213,20 +213,20 @@ Usa las cuentas de la sección 0 (Cliente, Desarrollador A) y, si la preparaste,
 ### Cuenta Cliente
 
 - [ ] El avatar de Clerk aparece a la derecha y desaparecen "Iniciar sesión" y "Registrarse".
-- [ ] Aparece "Mis proyectos" y lleva a `/dashboard/projects`; en esa página queda resaltado.
+- [ ] Aparece "Mi panel" y lleva a `/dashboard`; queda resaltado en `/dashboard` y también en `/dashboard/projects`.
 - [ ] No aparece "Mis propuestas".
 - [ ] La cabecera se ve igual en `/dashboard/projects`, `/projects/new`, `/projects/<id>/edit` y `/projects/<id>/payment` (con un proyecto en `proposal_selected`), sin duplicarse.
 - [ ] Desde `/projects/new` se puede volver a "Proyectos" y a "Nexora" sin escribir la URL.
 
 ### Cuenta Desarrollador
 
-- [ ] Aparece "Mis propuestas" y lleva a `/dashboard/proposals`; en esa página queda resaltado. No aparece "Mis proyectos".
-- [ ] Desde el detalle de un proyecto publicado se llega a "Mis propuestas" con un clic.
+- [ ] Aparece "Mi panel" y lleva a `/dashboard`; queda resaltado en `/dashboard` y también en `/dashboard/proposals`. No aparece "Mis proyectos" ni "Mis propuestas" (spec 013).
+- [ ] Desde el detalle de un proyecto publicado se llega a "Mi panel" con un clic.
 
 ### Cuenta recién registrada, sin rol
 
 - [ ] Tras registrarte y antes de elegir rol, la cabecera muestra el avatar y el enlace "Completar registro" hacia `/onboarding`.
-- [ ] Al elegir un rol y volver a `/`, "Completar registro" es sustituido por "Mis proyectos" o "Mis propuestas" según el rol.
+- [ ] Al elegir un rol y volver a `/`, "Completar registro" es sustituido por "Mi panel" (-> `/dashboard`) según el rol.
 
 ### Cuenta administrador (opcional)
 
@@ -348,7 +348,7 @@ Cubre solo la cuenta conectada del desarrollador y su onboarding. No hay transfe
 8. [ ] **Configuración:** con `STRIPE_SECRET_KEY` live (`sk_live_...` ficticia) o sin ella, "Configurar" muestra "Los cobros de prueba no están disponibles en este entorno." y no escribe en Neon. Restaura la clave después.
 9. [ ] **Cuenta inexistente:** borra la cuenta de prueba en el Dashboard y pulsa "Actualizar estado": aparece "No encontramos tu cuenta de cobros de prueba en Stripe. Contacta con el administrador.". **A verificar:** el código y tipo de error de Stripe en este caso (esperado `StripeInvalidRequestError` o `StripePermissionError` con `code` `account_invalid` o `resource_missing`). Reseteo manual (solo modo de prueba): `DELETE FROM connected_accounts WHERE user_id = '<id>';`.
 10. [ ] **Privacidad y logs:** el log del servidor y el HTML de la página no contienen `acct_...`, URLs de onboarding, correos ni claves.
-11. [ ] **Navegación:** el header del Desarrollador muestra "Mis propuestas" y "Mi cuenta" (ya no "Cobros de prueba", ver 019 D15); los de Cliente, administrador y visitante no cambian.
+11. [ ] **Navegación:** el header del Desarrollador muestra "Mi panel" (-> `/dashboard`) y "Mi cuenta" (ya no "Cobros de prueba", ver 019 D15); los de Cliente, administrador y visitante no cambian.
 12. [ ] **Responsive y accesibilidad** a 390 px: botones operables con teclado, foco visible, mensajes en `aria-live` y aviso "no es dinero real" visible.
 
 ## 8c. Spec 018 — Descripción de proyecto en Markdown
@@ -372,7 +372,7 @@ No requiere variables nuevas ni migración. Las filas antiguas en texto plano si
 4. [ ] **Perfil público:** `/developers/<id de A>` sin sesión muestra el perfil sin correo. Escribe `<script>alert(1)</script>` en la biografía y comprueba que se ve como texto. Los enlaces llevan `rel="noopener noreferrer nofollow"`. El código fuente de la página no contiene el correo de contacto ni el de acceso.
 5. [ ] **Privacidad del correo:** prueba `accepted_client`, `any_client` y `nobody` con C, D, B, Admin y el visitante. Con `accepted_client` solo C lo ve; con `any_client`, cualquier cliente con sesión; con `nobody`, nadie salvo A. Visitante, otro desarrollador y Admin no lo ven en ninguna opción. Anonimiza a A en Neon de prueba (o usa una cuenta ya anonimizada) y comprueba que el correo no aparece.
 6. [ ] **Permisos:** Cliente y Admin reciben 404 en `/dashboard/account`; sin sesión redirige a `/sign-in`; B no ve ni edita lo de A; `/developers/<uuid de un cliente>` da 404.
-7. [ ] **Header:** A ve "Proyectos", "Mis propuestas" y "Mi cuenta" (resaltado en la cuenta) y no "Cobros de prueba". Los demás roles no ven "Mi cuenta".
+7. [ ] **Header:** A ve "Proyectos", "Mi panel" (-> `/dashboard`) y "Mi cuenta" (resaltado en la cuenta) y no "Cobros de prueba". Los demás roles no ven "Mi cuenta".
 8. [ ] **Cobros dentro de la cuenta:** la tarjeta "Cobros de prueba" abre `/dashboard/payouts`; allí "Volver a Mi cuenta" regresa. El onboarding de Stripe (return y refresh) sigue llevando a `/dashboard/payouts`.
 9. [ ] **Sin perfil:** `/developers/<id de B>` antes de guardar muestra "Este desarrollador aún no completó su perfil".
 10. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal (header con tres enlaces incluido), todo operable con teclado, foco visible, objetivos de 44 px y errores anunciados. No hay botones de subir foto.
@@ -420,6 +420,34 @@ Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con
 8. [ ] **Privacidad y logs:** el HTML de la página de pago y de `/dashboard/payouts` no contiene `acct_...`, `tr_...`, `pi_...` ni URLs de Stripe; el log del servidor solo trae `transferId`, `status`, `reason` y los campos saneados de `stripeErrorLogFields` (nunca `acct_`, `tr_`, importes, correos ni el objeto de Stripe). La fila guarda códigos propios en `last_error_code`, no el mensaje de Stripe.
 9. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal, "Reintentar transferencia" operable con teclado, foco visible, objetivo táctil de 44 px, resultado anunciado en una región `aria-live` y el estado no depende solo del color.
 
+## 8g. Spec 012 — Dashboard del cliente y cancelación de pago
+
+Todo es de prueba: el bloque de pagos lleva "Modo de prueba · No se mueve dinero real". Cuentas: Cliente C (proyecto en `proposal_selected` con Desarrollador A), Desarrollador, Administrador y otro Cliente D. Para (b) hace falta **no** tener `stripe listen` activo.
+
+- [ ] (a) **Cancelar sesión abierta:** con `proposal_selected`, inicia el pago y vuelve a `/dashboard` sin pagar; la fila muestra "Pendiente" y "Continuar o cancelar el pago". Cancela: queda "Cancelado", en Stripe la sesión aparece `expired`, y "Cerrar proyecto" ya no devuelve `PAYMENT_IN_PROGRESS`; también se puede reintentar el pago (intento nuevo).
+- [ ] (b) **Carrera, pago ya completado:** paga en Stripe con `4242…` **sin** `stripe listen` (el intento sigue `pending` en Neon) y pulsa "Cancelar pago de prueba" en el panel: debe responder "El pago se completó antes de poder cancelarlo", el pago pasa a "Completado en Test Mode" y el proyecto a "En contratación"; nunca queda "Cancelado" sobre un pago pagado.
+- [ ] (c) **Sesión ya expirada:** expira la sesión con `stripe checkout sessions expire <cs_test_...>` y cancela desde la app sin esperar al webhook: queda "Cancelado" (el `expire` de la app falla; la relectura la ve `expired`).
+- [ ] (d) **Verificar el supuesto de Stripe:** con la sesión abierta en otra pestaña, cancela desde la app y confirma en la pestaña de Stripe que ya no se puede pagar.
+- [ ] (e) **Doble clic o dos pestañas:** una cancelación efectiva, la otra informa que no hay pago pendiente.
+- [ ] (f) **Cuentas:** developer ve su panel (013); admin recibe 404 en `/dashboard`; sin sesión redirige a `/sign-in`; otro cliente no ve ni cancela pagos ajenos.
+- [ ] (g) **Header del cliente:** "Mi panel" lleva a `/dashboard` y queda resaltado también en `/dashboard/projects`.
+- [ ] (h) **Transferencia:** con un proyecto contratado y transferencia `Pendiente`/`Completada en Test Mode`, el panel muestra el estado con "Transferencia de prueba, no es dinero real" y nunca "recibida".
+- [ ] (i) **Responsive y accesibilidad:** a 390 px sin scroll horizontal; teclado y foco visible (el diálogo abre con foco en "Volver"); lector de pantalla anuncia el resultado en el botón de cancelar y el diálogo.
+
+## 8h. Spec 013 — Dashboard del desarrollador
+
+Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se mueve dinero real". Cuentas: Desarrollador A y B, Cliente, Administrador.
+
+- [ ] (a) Desarrollador A sin cuenta de cobros: `/dashboard` muestra "Configurar cobros de prueba" y el enlace lleva a `/dashboard/payouts`; tras activar la cuenta y pulsar "Actualizar estado", el panel muestra "Lista para recibir transferencias de prueba" y desaparece la acción.
+- [ ] (b) Con propuestas en los cuatro estados, los conteos coinciden con `/dashboard/proposals` y cada enlace `?status=` abre la lista filtrada.
+- [ ] (c) Propuesta aceptada con el cliente sin pagar: aparece en "Proyectos ganados" con "Pago de prueba del cliente: No iniciado" y la acción informativa "Esperando el pago de prueba del cliente".
+- [ ] (d) Pago completado con transferencia `pending`/`failed`: el panel muestra el estado con "Transferencia de prueba, no es dinero real" y la acción "Reintentar" enlaza a `/dashboard/payouts`, donde "Reintentar transferencia" funciona; completada: "Completada en Test Mode", nunca "recibida".
+- [ ] (e) Valoraciones: sin ninguna, "Aún sin valoraciones"; tras valorar el cliente, promedio y cantidad coinciden con "Mi cuenta" y el enlace lleva al perfil público.
+- [ ] (f) Cuentas: cliente ve su panel de 012 sin cambios; admin recibe 404 en `/dashboard`; el Desarrollador B no ve nada del A.
+- [ ] (g) Header del desarrollador: "Mi panel" -> `/dashboard`, "Proyectos" y "Mi cuenta"; resaltado en `/dashboard/*` (en `/dashboard/account` también "Mi cuenta", ver P2).
+- [ ] (h) Sin red de Stripe: con la clave de Stripe inválida o ausente el panel carga igual (solo BD).
+- [ ] (i) Responsive a 390 px (header de tres enlaces), teclado/foco y lector de pantalla.
+
 ## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
@@ -431,7 +459,7 @@ Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con
 Estas notas no bloquean, pero conviene tenerlas a la vista:
 
 - La spec 010 refleja el pago por webhook verificado o por "Actualizar estado"; sin `stripe listen` (o un endpoint de webhook en despliegue, spec 017) un pago hecho en Stripe solo se confirma pulsando ese botón. 009 y 010 no deben llegar a usuarios finales por separado.
-- Un intento de pago abandonado se cancela con el evento `checkout.session.expired` o con "Actualizar estado"; si el webhook falta y el cliente no vuelve, queda `pending` y bloquea el cierre (`PAYMENT_IN_PROGRESS`) hasta la cancelación explícita de la spec 012.
+- Un intento de pago abandonado se cancela con el evento `checkout.session.expired` o con "Actualizar estado"; si el webhook falta y el cliente no vuelve, queda `pending` y bloquea el cierre (`PAYMENT_IN_PROGRESS`) hasta cancelarlo. La cancelación explícita ya existe (spec 012): el cliente pulsa "Cancelar pago de prueba" en `/dashboard` o en la página de pago del proyecto, confirma el diálogo y, cuando Stripe confirma la sesión como `expired`, el intento queda `canceled` y puede reintentar el pago o cerrar el proyecto (sección 8g).
 - Rate limiting del endpoint del webhook y de la acción de refresco: pendiente (spec 015).
 - Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno. El rate limiting de las acciones y rutas de cobros queda para la spec 015.
 - El header global ya existe (spec 009b, sección 7b). El landing de `/` y la metadata global (título, `lang`, 404 con marca) siguen pendientes; la spec 006 los recomendó en una spec propia (`006b-landing-and-site-header`).

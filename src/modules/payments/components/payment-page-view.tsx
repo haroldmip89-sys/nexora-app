@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { CancelPaymentButton } from "@/modules/payments/components/cancel-payment-button";
 import {
   PaymentProgress,
   type PaymentProgressProps,
@@ -214,7 +215,10 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
           <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-3">
             <StartCheckoutButton projectId={project.id} label={buttonLabel} />
             {canResume ? (
-              <RefreshPaymentButton projectId={project.id} />
+              <>
+                <RefreshPaymentButton projectId={project.id} />
+                <CancelPaymentButton projectId={project.id} />
+              </>
             ) : null}
           </div>
         ) : null}

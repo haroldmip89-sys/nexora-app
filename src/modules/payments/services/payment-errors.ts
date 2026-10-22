@@ -8,7 +8,8 @@ export type PaymentErrorCode =
   | "PAYMENT_ALREADY_ACTIVE"
   | "DEVELOPER_PAYOUTS_NOT_READY"
   | "STRIPE_UNAVAILABLE"
-  | "STRIPE_NOT_CONFIGURED";
+  | "STRIPE_NOT_CONFIGURED"
+  | "PAYMENT_NOT_CANCELABLE";
 
 export type PaymentErrorStatus = 409 | 502 | 503;
 
@@ -18,6 +19,7 @@ export const PAYMENT_ERROR_STATUS: Record<PaymentErrorCode, PaymentErrorStatus> 
   DEVELOPER_PAYOUTS_NOT_READY: 409,
   STRIPE_UNAVAILABLE: 502,
   STRIPE_NOT_CONFIGURED: 503,
+  PAYMENT_NOT_CANCELABLE: 409,
 };
 
 /** User-facing message (es) per domain error code. */
@@ -29,6 +31,8 @@ export const PAYMENT_ERROR_MESSAGES: Record<PaymentErrorCode, string> = {
     "El desarrollador aún no configuró sus cobros de prueba. Podrás pagar cuando lo haga.",
   STRIPE_UNAVAILABLE: "No pudimos conectar con Stripe. Inténtalo de nuevo en unos minutos.",
   STRIPE_NOT_CONFIGURED: "El pago de prueba no está disponible en este entorno.",
+  PAYMENT_NOT_CANCELABLE:
+    "El pago de prueba no se puede cancelar en este momento. Inténtalo de nuevo en unos minutos.",
 };
 
 export class PaymentError extends Error {

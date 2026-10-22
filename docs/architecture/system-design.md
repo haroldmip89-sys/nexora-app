@@ -111,6 +111,7 @@ src/
     payments/    -> intentos de pago, eventos procesados, cuentas conectadas, transferencia (specs 009-011)
     profile/     -> edición y vista pública del perfil del desarrollador, privacidad del correo de contacto (spec 019)
     ratings/     -> valoraciones del cliente al desarrollador contratado (spec 020)
+    dashboard/   -> panel de resumen del cliente y del desarrollador, solo lectura (specs 012 y 013)
   lib/
     db/          -> cliente Drizzle y schema (ubicación final: spec 003, D7)
   app/
@@ -128,6 +129,7 @@ Dependencias permitidas (sin ciclos):
 | `payments` | `projects`, `proposals`, `users`, `auth` |
 | `profile` | `users`, `projects`, `proposals`, `auth` (nadie depende de `profile` salvo `src/app`) |
 | `ratings` | `projects`, `proposals`, `users`, `auth` (lectura de sus tablas Drizzle); más una dependencia de **solo tipo** hacia `profile` (`DeveloperRatingSummary`), sin ciclo porque `profile` no importa `ratings` (spec 020) |
+| `dashboard` | `auth` y lectura de las tablas Drizzle de `projects`, `proposals`, `payments`, `ratings` y `users` (no sus servicios, con una excepción: `getConnectedAccountOverview` y `getDeveloperRatingSummary`, solo lectura y sin Stripe, spec 013; solo lectura, sin Stripe). Nadie depende de `dashboard` salvo `src/app`; `payments` -> `dashboard` ausente (spec 012) |
 
 Reglas:
 
@@ -233,7 +235,7 @@ Notas:
 | Id | Decisión | Spec destino |
 |---|---|---|
 | D1 | Un solo rol por usuario (`client` \| `developer` \| `admin`), elegido al registrarse y no modificable en el MVP; fuente de verdad `user.role` en Neon, con caché opcional en metadata de Clerk | 003, 004 |
-| D2 | `proposal_selected -> closed` permitido mientras no exista pago `completed_test`; con intento `pending` hay que cancelarlo o esperar su resolución. No se reabre la selección en el MVP. Cierre del lado servidor en 010: el evento `checkout.session.expired` y la reconciliación "Actualizar estado" cancelan el intento `pending`; la cancelación explícita del cliente queda para 012 | 010, 012 |
+| D2 | `proposal_selected -> closed` permitido mientras no exista pago `completed_test`; con intento `pending` hay que cancelarlo o esperar su resolución. No se reabre la selección en el MVP. Cierre del lado servidor en 010: el evento `checkout.session.expired` y la reconciliación "Actualizar estado" cancelan el intento `pending`; la cancelación explícita del cliente llega en 012 (**resuelta**: `cancelPendingPayment`, solo con `expired` confirmado por Stripe; ver 012-D-A a D-M) | 010, 012 |
 | D3 | `published -> draft` solo si el proyecto no tiene propuestas | 005 |
 | D4 | Tabla del perfil del desarrollador dentro del módulo `users`; la lógica de perfil vive en el módulo `profile` (ajustada por 019 D14) | 003, 019 |
 | D5 | Una propuesta por desarrollador por proyecto (unicidad); editable mientras `pending`; no se permite reenviar tras retirar | 003, 007 |
@@ -301,5 +303,37 @@ Los ids son los de la spec 020; no sustituyen a los D-x de otras specs.
 | 020-D-I | Columnas `timestamptz`; días restantes calculados en servidor; fechas de la lista en UTC | 020 |
 | 020-D-J | Cliente borrado o anonimizado: la valoración se conserva y se muestra como "Cliente" | 020 |
 | 020-D-K | Textos de estado, comentario en texto plano, 20 valoraciones sin paginar, perfil visible a anónimos y enlace "Ver valoraciones recibidas" a `/developers/{id}#valoraciones` | 020 |
+
+### Dashboard del cliente y cancelación de pago (spec 012, aprobadas)
+
+Los ids son los de la spec 012; no sustituyen a los D-x de otras specs.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 012-D-A | Nueva ruta `/dashboard` (resumen); `/dashboard/projects` se queda como está | 012 |
+| 012-D-B | El header del cliente pasa a "Mi panel" -> `/dashboard` (modifica 009b) | 012 |
+| 012-D-C | Módulo `dashboard` de solo lectura sobre tablas Drizzle; la cancelación vive en `payments` | 012 |
+| 012-D-D | `/dashboard` solo para `client`; developer y admin reciben 404 | 012 |
+| 012-D-E | Cancelar: Stripe decide; solo `expired` confirmado cancela, vía `applySessionOutcome` | 012 |
+| 012-D-F | Carrera cancelar/pagar: árbitro Stripe; si `expire` falla se relee y se aplica el resultado real | 012 |
+| 012-D-G | Intento `pending` sin sesión: se cancela solo pasada `RESUME_WINDOW_SECONDS`, con guarda `IS NULL` | 012 |
+| 012-D-H | Sin llamadas a Stripe en lecturas del panel | 012 |
+| 012-D-I | `closeProject` no cancela solo; la cancelación es una acción explícita | 012 |
+| 012-D-J | Botón "Cancelar pago de prueba" en el panel y la página de pago, con `AlertDialog` | 012 |
+| 012-D-K | Listas del panel acotadas a 20 con enlace "Ver todos" | 012 |
+| 012-D-L | Acciones pendientes derivadas por una función pura (`deriveProjectActions`) | 012 |
+| 012-D-M | Aviso de Modo de prueba y transferencia siempre como de prueba, nunca "recibida" | 012 |
+| 013-D-A | `/dashboard` es role-aware (misma ruta, vista por rol); `admin` sigue en 404. Resuelve P3 de 012 | 013 |
+| 013-D-B | El header del desarrollador pasa a "Mi panel" -> `/dashboard` (modifica 009b); "Mis propuestas" queda a un clic desde el panel | 013 |
+| 013-D-C | `getDeveloperDashboard` en el módulo `dashboard`, solo lectura; reutiliza `getConnectedAccountOverview` y `getDeveloperRatingSummary` (excepción en §4) | 013 |
+| 013-D-D | Conteo de propuestas con consulta propia `GROUP BY status`, no `listMyProposals` | 013 |
+| 013-D-E | Proyectos ganados: propuesta `accepted` con proyecto `proposal_selected`/`contracted`, acotados a 20 con "Ver todas" | 013 |
+| 013-D-F | Transferencia: se reutilizan tipos y textos; `getDeveloperTransfers` solo como oráculo de test | 013 |
+| 013-D-G | Cuenta de cobros mostrada tal cual (último estado sincronizado) con enlace a `/dashboard/payouts` | 013 |
+| 013-D-H | Acciones pendientes derivadas por una función pura (`deriveDeveloperActions`) | 013 |
+| 013-D-I | Valoraciones con `RatingSummary` reutilizado sin modificar | 013 |
+| 013-D-J | Del cliente solo el nombre abreviado; contacto externo diferido | 013 |
+| 013-D-K | Aviso de Modo de prueba; transferencia siempre como de prueba, nunca "recibida" | 013 |
+| 013-D-L | Sin llamadas a Stripe en lecturas del panel | 013 |
 
 Cualquier cambio de arquitectura requiere una spec aprobada.
