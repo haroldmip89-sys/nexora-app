@@ -1,3 +1,4 @@
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { formatUsd } from "@/lib/money";
 import type { ProjectStatus } from "@/modules/projects/types/project.types";
 import { ProposalStatusBadge } from "@/modules/proposals/components/proposal-status-badge";
@@ -52,9 +53,10 @@ export function ClientProposalDetail({ proposal, projectId, projectStatus }: Pro
           </dl>
           <div>
             <h3 className="text-xs text-[#535E56]">Descripción</h3>
-            <p className="mt-1 whitespace-pre-line break-words text-sm text-[#202522]">
-              {proposal.description}
-            </p>
+            <MarkdownContent
+              source={proposal.description}
+              className="mt-1 text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+            />
           </div>
           {projectStatus === "published" && proposal.status === "pending" ? (
             <div>

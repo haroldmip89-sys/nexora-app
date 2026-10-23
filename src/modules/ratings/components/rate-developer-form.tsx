@@ -72,7 +72,8 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
   const [comment, setComment] = useState(existing?.comment ?? "");
 
   useEffect(() => {
-    if (state.status === "success") router.refresh();
+    // Saved: leave the form for the client panel, where the pending "rate" action is gone.
+    if (state.status === "success") router.push("/dashboard");
   }, [state, router]);
 
   const errors = state.status === "error" ? state.fieldErrors : {};

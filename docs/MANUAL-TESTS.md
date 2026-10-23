@@ -363,6 +363,7 @@ No requiere variables nuevas ni migración. Las filas antiguas en texto plano si
 6. [ ] **Edición:** edita un proyecto `published` (la descripción sigue editable) y un borrador antiguo en texto plano; los saltos de línea simples de textos antiguos se ven unidos (comportamiento README esperado).
 7. [ ] **Tablas y móvil:** a 390 px una tabla ancha hace scroll horizontal dentro de su contenedor, sin desbordar la página.
 8. [ ] **Accesibilidad:** las casillas de tarea no son interactivas y el lector de pantalla anuncia "Completado"/"Pendiente"; el editor y la cabecera "Markdown" son operables con teclado.
+9. [ ] **Propuestas en Markdown (mejora de 007/018):** como desarrollador, el formulario de propuesta usa el mismo editor que la descripción del proyecto (barra, pestañas Escribir/Vista previa, contador hasta 5000). Tras enviar, `Tu propuesta` y el detalle del cliente (`/projects/<id>/proposals`) muestran títulos, negritas, listas y enlaces con estilo; el HTML crudo, las imágenes y los enlaces `javascript:` no se renderizan.
 
 ## 8d. Spec 019 — Perfil del desarrollador y "Mi cuenta"
 

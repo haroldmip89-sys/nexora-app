@@ -3,7 +3,7 @@
 import { Fragment, useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/modules/projects/components/markdown-editor";
 import { FormField } from "@/components/shared/form-field";
 import { centsToUsd } from "@/lib/money";
 import {
@@ -120,21 +120,18 @@ export function ProposalForm(props: Props) {
       <FormField
         name="description"
         label="Descripción de tu propuesta"
-        hint={`Entre ${L.description.min} y ${L.description.max} caracteres.`}
+        hint={`Admite Markdown. Entre ${L.description.min} y ${L.description.max} caracteres.`}
         error={errors.description}
       >
         {({ id, describedBy, invalid }) => (
-          <Textarea
+          <MarkdownEditor
             id={id}
             name="description"
             defaultValue={values.description}
-            required
             minLength={L.description.min}
             maxLength={L.description.max}
-            rows={6}
-            aria-invalid={invalid}
-            aria-describedby={describedBy}
-            className="rounded-[10px] border-[#E3E8E3] bg-white text-[#202522]"
+            invalid={invalid}
+            describedBy={describedBy}
           />
         )}
       </FormField>

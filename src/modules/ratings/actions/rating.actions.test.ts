@@ -155,12 +155,13 @@ describe.each([
     spy.mockRestore();
   });
 
-  it("revalidates the rate page, the developer profile and the account, then succeeds", async () => {
+  it("revalidates the rate page, the developer profile, the account and the client panel, then succeeds", async () => {
     const result = await action(PROJECT_ID, idle, form({ rating: "5", comment: "  great  " }));
     expect(result).toEqual({ status: "success" });
     expect(service).toHaveBeenCalledWith(client, PROJECT_ID, { rating: 5, comment: "great" });
     expect(mocks.revalidatePath).toHaveBeenCalledWith(`/projects/${PROJECT_ID}/rate`);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/developers/u-dev");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard/account");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard");
   });
 });

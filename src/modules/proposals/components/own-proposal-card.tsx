@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { Button } from "@/components/ui/button";
 import { formatUsd } from "@/lib/money";
 import { ProposalForm } from "@/modules/proposals/components/proposal-form";
@@ -41,9 +42,10 @@ export function OwnProposalCard({ proposal }: { proposal: DeveloperProposal }) {
         </div>
       </dl>
 
-      <p className="whitespace-pre-line break-words text-sm leading-relaxed text-[#202522]">
-        {proposal.description}
-      </p>
+      <MarkdownContent
+        source={proposal.description}
+        className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+      />
 
       {isPending ? (
         <div className="flex flex-wrap items-start gap-2">

@@ -82,6 +82,7 @@ async function submitRating(
   revalidatePath(`/projects/${projectId}/rate`);
   revalidatePath(`/developers/${developerId}`);
   revalidatePath("/dashboard/account");
+  revalidatePath("/dashboard");
   return { status: "success" };
 }
 
