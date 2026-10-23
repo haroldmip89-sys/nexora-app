@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { retryTransfersAction } from "@/modules/payments/actions/developer-transfer.actions";
 
 export function RetryTransfersButton() {
@@ -15,6 +16,7 @@ export function RetryTransfersButton() {
     startTransition(async () => {
       const result = await retryTransfersAction();
       if (result.ok) {
+        announce("Transferencias reintentadas. Revisa el estado actualizado.");
         router.refresh();
       } else {
         setError(result.message);

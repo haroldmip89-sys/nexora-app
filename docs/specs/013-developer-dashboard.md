@@ -296,7 +296,7 @@ Máximo 5. Cada archivo pertenece a una sola tarea. Durante el bloque paralelo n
 - R1. **Modifica specs `done` (009b y la nota en 012).** El header del desarrollador pierde "Mis propuestas" (queda a un clic desde el panel). Regresión de navegación cubierta por AC10 y la prueba manual (g).
 - R2. **Lógica de "último intento/transferencia" repetida** entre este servicio, el del cliente y `getProjectPaymentOverview`. Se acepta para no tocar servicios `done`; el test de coherencia (AC6) detecta divergencias. Con un tercer consumidor real, extraer un helper compartido en `payments`.
 - R3. El panel muestra el último estado **confirmado por el servidor**: un pago hecho sin webhook puede verse `pending` hasta que el cliente pulse "Actualizar estado"; el desarrollador no puede refrescarlo (solo la cuenta de cobros en `/dashboard/payouts`). Heredado de 010.
-- R4. Doble `aria-current="page"` en `/dashboard/account` ("Mi panel" y "Mi cuenta") por el resaltado por prefijo (D-B, P2).
+- R4. Doble `aria-current="page"` en `/dashboard/account` ("Mi panel" y "Mi cuenta") por el resaltado por prefijo (D-B, P2). Resuelto en la spec 014 (`getActiveHref`).
 - R5. Importar `connected-account.service.ts` arrastra `@/lib/stripe` al grafo del panel (sin llamarlo). Mitigación: test con `getStripe` que lanza (AC8). Alternativa si molesta: leer `connected_accounts` directamente (duplica ~6 líneas); ver P5.
 - R6. Listas acotadas a 20 (como 012): un desarrollador con más de 20 proyectos ganados no los verá todos en el panel; el enlace "Ver todas" lleva a la lista.
 - R7. Se muestra al desarrollador el estado del pago del cliente (`payment.read` ya lo permite al rol): solo estado y fecha, sin importes ajenos ni datos de Stripe.

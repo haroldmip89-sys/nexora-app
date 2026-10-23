@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { selectProposalAction } from "@/modules/proposals/actions/proposal-selection.actions";
 
 /** Error codes meaning the on-screen data is stale: reload and block re-confirming. */
@@ -52,6 +53,9 @@ export function SelectProposalButton({ projectId, proposalId, developerName, see
     if (next) {
       setError(null);
       setStale(false);
+    } else if (stale) {
+      // Closing (button or Escape) while stale reloads the data once.
+      router.refresh();
     }
   }
 
@@ -61,13 +65,11 @@ export function SelectProposalButton({ projectId, proposalId, developerName, see
       const result = await selectProposalAction(projectId, proposalId, seenUpdatedAt);
       if (result.ok) {
         setOpen(false);
+        announce("Propuesta seleccionada. Continúa con el pago de prueba.");
         return;
       }
       setError(result.message);
-      if (STALE_CODES.has(result.code)) {
-        setStale(true);
-        router.refresh();
-      }
+      if (STALE_CODES.has(result.code)) setStale(true);
     });
   }
 
@@ -110,7 +112,7 @@ export function SelectProposalButton({ projectId, proposalId, developerName, see
 
           <AlertDialogFooter>
             <AlertDialogCancel ref={cancelRef} disabled={pending} className="h-10 px-4">
-              {stale ? "Cerrar" : "Cancelar"}
+              {stale ? "Cerrar y recargar" : "Cancelar"}
             </AlertDialogCancel>
             <Button
               type="button"

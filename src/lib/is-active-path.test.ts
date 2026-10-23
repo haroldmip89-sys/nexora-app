@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isActivePath } from "@/lib/is-active-path";
+import { getActiveHref, isActivePath } from "@/lib/is-active-path";
 
 describe("isActivePath", () => {
   it.each([
@@ -13,5 +13,19 @@ describe("isActivePath", () => {
     ["/dashboard/projects", "/dashboard/projects", true],
   ])("isActivePath(%s, %s) -> %s", (pathname, href, expected) => {
     expect(isActivePath(pathname, href)).toBe(expected);
+  });
+});
+
+describe("getActiveHref", () => {
+  const HREFS = ["/projects", "/dashboard", "/dashboard/account"];
+
+  it.each([
+    ["/dashboard/account", HREFS, "/dashboard/account"],
+    ["/dashboard/proposals", HREFS, "/dashboard"],
+    ["/projects/abc", HREFS, "/projects"],
+    ["/somewhere-else", HREFS, null],
+    ["/", ["/projects"], null],
+  ])("getActiveHref(%s) -> %s", (pathname, hrefs, expected) => {
+    expect(getActiveHref(pathname, hrefs)).toBe(expected);
   });
 });

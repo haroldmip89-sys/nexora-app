@@ -1,8 +1,17 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
+import { extraCspDirectives } from "@/lib/security-headers";
+
 // Only exposes the Clerk session to `auth()`. Authorization lives in the
 // server guards of each page, route handler and server action (spec 004 RF4).
-export default clerkMiddleware();
+// CSP stays Report-Only (spec 015 D9): moving to enforce is a human decision
+// after the manual checklist. Clerk merges `directives` with its defaults.
+export default clerkMiddleware({
+  contentSecurityPolicy: {
+    reportOnly: true,
+    directives: extraCspDirectives,
+  },
+});
 
 export const config = {
   matcher: [

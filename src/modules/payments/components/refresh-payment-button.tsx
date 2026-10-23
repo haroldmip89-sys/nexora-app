@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { refreshPaymentStatusAction } from "@/modules/payments/actions/payment-reconciliation.actions";
 import type { ReconcileResult } from "@/modules/payments/types/payment.types";
 
@@ -27,10 +28,13 @@ export function RefreshPaymentButton({ projectId }: Props) {
     startTransition(async () => {
       const result = await refreshPaymentStatusAction(projectId);
       if (result.ok) {
-        setFeedback({ kind: "status", text: OUTCOME_TEXT[result.outcome] });
+        const text = OUTCOME_TEXT[result.outcome];
+        setFeedback({ kind: "status", text });
+        announce(text, "status");
         router.refresh();
       } else {
         setFeedback({ kind: "alert", text: result.message });
+        announce(result.message, "alert");
       }
     });
   }
@@ -46,18 +50,15 @@ export function RefreshPaymentButton({ projectId }: Props) {
       >
         {pending ? "Actualizando..." : "Actualizar estado"}
       </Button>
-      <div aria-live="polite">
-        {feedback ? (
-          <p
-            role={feedback.kind}
-            className={
-              feedback.kind === "alert" ? "text-sm text-destructive" : "text-sm text-[#202522]"
-            }
-          >
-            {feedback.text}
-          </p>
-        ) : null}
-      </div>
+      {feedback ? (
+        <p
+          className={
+            feedback.kind === "alert" ? "text-sm text-destructive" : "text-sm text-[#202522]"
+          }
+        >
+          {feedback.text}
+        </p>
+      ) : null}
     </div>
   );
 }

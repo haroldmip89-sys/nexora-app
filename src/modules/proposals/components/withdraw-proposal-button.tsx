@@ -1,45 +1,61 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { withdrawProposalAction } from "@/modules/proposals/actions/proposal.actions";
 
 type Props = { proposalId: string; className?: string };
 
-/** Provisional `window.confirm` (spec 014 replaces it with a dialog). */
 export function WithdrawProposalButton({ proposalId, className }: Props) {
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleClick() {
-    if (!window.confirm("¿Retirar esta propuesta? No podrás enviar otra a este proyecto.")) {
-      return;
-    }
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) setError(null);
+  }
+
+  function handleConfirm() {
     setError(null);
     startTransition(async () => {
       const result = await withdrawProposalAction(proposalId);
-      if (!result.ok) setError(result.message);
+      if (result.ok) {
+        setOpen(false);
+        announce("Propuesta retirada.");
+        return;
+      }
+      setError(result.message);
     });
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <>
       <Button
+        ref={openerRef}
         type="button"
         variant="outline"
         disabled={pending}
-        onClick={handleClick}
+        onClick={() => handleOpenChange(true)}
         className={className ?? "h-9 px-3"}
       >
         {pending ? "Retirando..." : "Retirar"}
       </Button>
-      <div aria-live="polite">
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="¿Retirar esta propuesta?"
+        description="No podrás enviar otra a este proyecto."
+        confirmLabel="Retirar propuesta"
+        pendingLabel="Retirando..."
+        onConfirm={handleConfirm}
+        pending={pending}
+        error={error}
+        finalFocus={openerRef}
+      />
+    </>
   );
 }

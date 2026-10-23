@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { refreshConnectedAccountAction } from "@/modules/payments/actions/connected-account.actions";
 
 export function RefreshConnectedAccountButton() {
@@ -15,6 +16,7 @@ export function RefreshConnectedAccountButton() {
     startTransition(async () => {
       const result = await refreshConnectedAccountAction();
       if (result.ok) {
+        announce("Estado de la cuenta de cobros actualizado.");
         router.refresh();
       } else {
         setError(result.message);

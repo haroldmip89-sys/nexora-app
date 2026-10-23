@@ -38,6 +38,22 @@ describe("SiteNav", () => {
       expect(currentLinks()).toEqual(expected);
     });
 
+    it.each([
+      ["/dashboard/account", ["Mi cuenta"]],
+      ["/dashboard", ["Mi panel"]],
+      ["/dashboard/proposals", ["Mi panel"]],
+      ["/projects/abc", ["Proyectos"]],
+    ])("marks only one of three links on %s", (path, expected) => {
+      pathnameMock.value = path;
+      render(
+        <SiteNav
+          links={[PROJECTS, { href: "/dashboard", label: "Mi panel" }, { href: "/dashboard/account", label: "Mi cuenta" }]}
+          signedIn
+        />,
+      );
+      expect(currentLinks()).toEqual(expected);
+    });
+
     it("marks Registrarse on /sign-up", () => {
       pathnameMock.value = "/sign-up";
       render(<SiteNav links={[PROJECTS]} signedIn={false} />);

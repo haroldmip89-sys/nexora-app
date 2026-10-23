@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { announce } from "@/lib/announcer.store";
 import { cancelPendingPaymentAction } from "@/modules/payments/actions/payment-cancellation.actions";
 import type { CancelPaymentResult } from "@/modules/payments/types/payment.types";
 
@@ -37,6 +38,11 @@ export function CancelPaymentButton({ projectId }: Props) {
     setOpen(next);
   }
 
+  function showFeedback(next: Feedback) {
+    setFeedback(next);
+    announce(next.text, next.kind);
+  }
+
   function handleConfirm() {
     setFeedback(null);
     startTransition(async () => {
@@ -44,14 +50,14 @@ export function CancelPaymentButton({ projectId }: Props) {
         const result = await cancelPendingPaymentAction(projectId);
         setOpen(false);
         if (result.ok) {
-          setFeedback({ kind: "status", text: OUTCOME_TEXT[result.outcome] });
+          showFeedback({ kind: "status", text: OUTCOME_TEXT[result.outcome] });
         } else {
-          setFeedback({ kind: "alert", text: result.message });
+          showFeedback({ kind: "alert", text: result.message });
         }
         router.refresh();
       } catch {
         setOpen(false);
-        setFeedback({
+        showFeedback({
           kind: "alert",
           text: "No pudimos completar la acción. Inténtalo de nuevo.",
         });
@@ -99,18 +105,15 @@ export function CancelPaymentButton({ projectId }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div aria-live="polite">
-        {feedback ? (
-          <p
-            role={feedback.kind}
-            className={
-              feedback.kind === "alert" ? "text-sm text-destructive" : "text-sm text-[#202522]"
-            }
-          >
-            {feedback.text}
-          </p>
-        ) : null}
-      </div>
+      {feedback ? (
+        <p
+          className={
+            feedback.kind === "alert" ? "text-sm text-destructive" : "text-sm text-[#202522]"
+          }
+        >
+          {feedback.text}
+        </p>
+      ) : null}
     </div>
   );
 }

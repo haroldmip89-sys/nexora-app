@@ -445,9 +445,17 @@ Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se
 - [ ] (d) Pago completado con transferencia `pending`/`failed`: el panel muestra el estado con "Transferencia de prueba, no es dinero real" y la acción "Reintentar" enlaza a `/dashboard/payouts`, donde "Reintentar transferencia" funciona; completada: "Completada en Test Mode", nunca "recibida".
 - [ ] (e) Valoraciones: sin ninguna, "Aún sin valoraciones"; tras valorar el cliente, promedio y cantidad coinciden con "Mi cuenta" y el enlace lleva al perfil público.
 - [ ] (f) Cuentas: cliente ve su panel de 012 sin cambios; admin recibe 404 en `/dashboard`; el Desarrollador B no ve nada del A.
-- [ ] (g) Header del desarrollador: "Mi panel" -> `/dashboard`, "Proyectos" y "Mi cuenta"; resaltado en `/dashboard/*` (en `/dashboard/account` también "Mi cuenta", ver P2).
+- [ ] (g) Header del desarrollador: "Mi panel" -> `/dashboard`, "Proyectos" y "Mi cuenta"; resaltado en `/dashboard/*` (en `/dashboard/account` solo "Mi cuenta", spec 014).
 - [ ] (h) Sin red de Stripe: con la clave de Stripe inválida o ausente el panel carga igual (solo BD).
 - [ ] (i) Responsive a 390 px (header de tres enlaces), teclado/foco y lector de pantalla.
+
+## 8i. Spec 014 — Accesibilidad y feedback
+
+- [ ] (a) Despublicar, cerrar y retirar abren un diálogo propio (no el `confirm` del navegador): foco inicial en "Cancelar", Tab y Shift+Tab no salen del diálogo, Escape lo cierra y el foco vuelve al botón que lo abrió.
+- [ ] (b) Selección con propuesta modificada (008, "Versión vista"): el diálogo se queda abierto con el mensaje y el botón "Cerrar y recargar"; al pulsarlo se cierra y la página se recarga.
+- [ ] (c) Con lector de pantalla, cancelar pago, actualizar pago, retirar y cerrar anuncian el resultado aunque el botón desaparezca.
+- [ ] (d) En `/dashboard/account` (desarrollador) solo "Mi cuenta" está marcado como página actual (en `/dashboard` y `/dashboard/proposals`, "Mi panel").
+- [ ] (e) A 390 px los diálogos no se desbordan.
 
 ## 9. Revisión visual transversal
 
@@ -465,8 +473,6 @@ Estas notas no bloquean, pero conviene tenerlas a la vista:
 - Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno. El rate limiting de las acciones y rutas de cobros queda para la spec 015.
 - El header global ya existe (spec 009b, sección 7b). El landing de `/` y la metadata global (título, `lang`, 404 con marca) siguen pendientes; la spec 006 los recomendó en una spec propia (`006b-landing-and-site-header`).
 - La paginación del catálogo solo tiene "Anterior / Siguiente", sin números de página.
-- En la spec 008, con algunos errores raros de selección el diálogo puede cerrarse al refrescar sin mostrar el mensaje. Se pulirá en la spec 014.
-- `window.confirm` se usa de forma provisional al despublicar, cerrar y retirar. La spec 014 lo sustituirá por un diálogo accesible.
 - Un proyecto publicado con una categoría que ya no esté en la lista no podría editar su título. Es hipotético hasta que cambie la lista de categorías.
 - `npm audit` reporta vulnerabilidades en el árbol de dependencias. Pendiente de revisar antes del despliegue.
 - Los tests no demuestran los bloqueos reales de Postgres (`FOR UPDATE`, `FOR SHARE`) porque PGlite tiene una sola conexión. Se validaron leyendo el SQL. La spec 016 debería cubrirlos contra una rama real de Neon.

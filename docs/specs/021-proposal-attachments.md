@@ -1,6 +1,8 @@
 # Adjuntos en propuestas (Excel, Word, PDF y otros)
 
-Estado: borrador
+Estado: descartada
+
+> **Descartada (2026-10-22, decidida por el humano).** Fuera del MVP: la propuesta se queda con su descripción en Markdown (hasta 5000 caracteres). No se almacenan archivos, así que no hay storage, antivirus ni subida. Este documento queda solo como referencia si se retoma (opciones evaluadas: Vercel Blob subiendo desde el servidor con tope de ~4 MB, o `bytea` en la BD).
 
 Spec 021. Independiente de 018 (Markdown), 019 (perfil) y 020 (valoraciones): solo depende del módulo de propuestas (007, 008; ambas `done`). Los ids 012-017 están reservados en `docs/SDD-PLAN.md`. Formato y patrones: specs 007, 008 y 011a. Referencia visual (no es contrato): `ProposalForm.dc.html` del diseño ("Adjuntos (opcional) · Hasta 5 archivos · 10 MB cada uno", zona de arrastre, filas con tipo, tamaño, progreso y error "Tipo de archivo no permitido") y `ProjectDetail.dc.html` (nota "Puedes adjuntar tu cotización o plan de trabajo en PDF, Word o Excel").
 

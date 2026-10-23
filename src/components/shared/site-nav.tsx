@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { buttonVariants } from "@/components/ui/button";
-import { isActivePath } from "@/lib/is-active-path";
+import { getActiveHref, isActivePath } from "@/lib/is-active-path";
 import { cn } from "@/lib/utils";
 import type { NavLinkItem } from "@/modules/auth/services/dashboard-link";
 
@@ -34,6 +34,7 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const items = signedIn ? links : [...links, { href: "/sign-in", label: "Iniciar sesión" }];
+  const activeHref = getActiveHref(pathname, items.map((item) => item.href));
   const close = () => setOpenedAt(null);
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -69,7 +70,7 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
             className={cn("flex-col gap-1 py-2 md:flex md:flex-row md:items-center md:py-0", open ? "flex" : "hidden")}
           >
             {items.map((item) => {
-              const active = isActivePath(pathname, item.href);
+              const active = item.href === activeHref;
               return (
                 <li key={item.href}>
                   <Link
