@@ -9,6 +9,7 @@ import {
   ProposalError,
 } from "@/modules/proposals/services/proposal-errors";
 import { selectProposal } from "@/modules/proposals/services/proposal-selection.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type { ProposalActionResult } from "@/modules/proposals/types/proposal.types";
 
 const NOT_FOUND_MESSAGE = "No encontramos el proyecto o la propuesta.";
@@ -50,6 +51,9 @@ export async function selectProposalAction(
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "proposal.select");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   const parsed = selectProposalInputSchema.safeParse({ projectId, proposalId, seenUpdatedAt });
   if (!parsed.success) {

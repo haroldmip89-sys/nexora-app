@@ -104,6 +104,6 @@ export type ProposalActionResult =
   | { ok: true }
   | {
       ok: false;
-      code: ProposalErrorCode | "NOT_FOUND" | "UNKNOWN";
+      code: ProposalErrorCode | "NOT_FOUND" | "RATE_LIMITED" | "UNKNOWN";
       message: string;
     };

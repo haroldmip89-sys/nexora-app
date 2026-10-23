@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import type { PaymentAttemptStatus } from "@/modules/payments/types/payment.types";
 import type { DashboardActionKind, DashboardProjectPayment } from "../types/dashboard.types";

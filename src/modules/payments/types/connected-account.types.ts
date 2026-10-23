@@ -38,7 +38,7 @@ export type ConnectedAccountOverview = {
 
 export type ConnectedAccountActionResult = {
   ok: false;
-  code: ConnectedAccountErrorCode | "UNKNOWN";
+  code: ConnectedAccountErrorCode | "RATE_LIMITED" | "UNKNOWN";
   message: string;
 };
 

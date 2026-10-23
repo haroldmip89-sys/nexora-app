@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import type { Role } from "@/modules/auth/types/auth.types";
 import type { ContactVisibility } from "@/modules/profile/types/developer-profile.types";

@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import { onboardingSchema } from "@/modules/auth/schemas/onboarding.schema";
 

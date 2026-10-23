@@ -10,6 +10,7 @@ import {
   PAYMENT_ERROR_MESSAGES,
   PaymentError,
 } from "@/modules/payments/services/payment-errors";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type { CheckoutStartResult, PaymentActionResult } from "@/modules/payments/types/payment.types";
 
 const NOT_FOUND_MESSAGE = "No encontramos el proyecto.";
@@ -37,6 +38,9 @@ export async function startCheckoutAction(projectId: string): Promise<PaymentAct
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "checkout.start");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   const parsed = startCheckoutInputSchema.safeParse({ projectId });
   if (!parsed.success) return { ok: false, code: "NOT_FOUND", message: NOT_FOUND_MESSAGE };

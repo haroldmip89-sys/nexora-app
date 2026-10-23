@@ -9,6 +9,7 @@ import {
   toDeveloperProfileFieldErrors,
 } from "@/modules/profile/schemas/developer-profile.schema";
 import { saveOwnProfile } from "@/modules/profile/services/developer-profile.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type { SaveDeveloperProfileResult } from "@/modules/profile/types/developer-profile.types";
 
 const UNKNOWN_MESSAGE = "No pudimos guardar tu perfil. Inténtalo de nuevo.";
@@ -27,6 +28,9 @@ export async function saveDeveloperProfileAction(
   input: unknown,
 ): Promise<SaveDeveloperProfileResult> {
   const actor = await requireDeveloper();
+
+  const limit = await enforceRateLimit(actor, "profile.save");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   const parsed = developerProfileInputSchema.safeParse(input);
   if (!parsed.success) {

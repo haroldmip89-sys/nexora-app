@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import type { ConnectedAccountOverview } from "@/modules/payments/types/connected-account.types";
 import type { DeveloperTransferStatus } from "@/modules/payments/types/developer-transfer.types";

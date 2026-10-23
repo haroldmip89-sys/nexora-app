@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   selectProposal: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((url: string) => {
@@ -20,6 +21,10 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 }));
 vi.mock("@/modules/proposals/services/proposal-selection.service", () => ({
   selectProposal: mocks.selectProposal,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  RATE_LIMITED_MESSAGE: "limited",
+  enforceRateLimit: mocks.enforceRateLimit,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect, notFound: mocks.notFound }));
@@ -56,6 +61,32 @@ beforeEach(() => {
   });
   mocks.requireRole.mockReset();
   mocks.requireRole.mockResolvedValue(client);
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
+});
+
+describe("selectProposalAction rate limiting (spec 015)", () => {
+  it("blocked limiter returns RATE_LIMITED without validating or calling the service", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(selectProposalAction(PROJECT_ID, PROPOSAL_ID, SEEN)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "limited",
+    });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(client, "proposal.select");
+    expect(mocks.selectProposal).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("allowed limiter keeps the normal flow", async () => {
+    await expect(selectProposalAction(PROJECT_ID, PROPOSAL_ID, SEEN)).resolves.toEqual({ ok: true });
+    expect(mocks.selectProposal).toHaveBeenCalled();
+  });
+
+  it("wrong role does not consume quota", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await expect(selectProposalAction(PROJECT_ID, PROPOSAL_ID, SEEN)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+  });
 });
 
 describe("selectProposalAction", () => {

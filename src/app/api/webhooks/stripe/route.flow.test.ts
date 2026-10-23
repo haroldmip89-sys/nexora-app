@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import Stripe from "stripe";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb } from "@/lib/db/test-db";
+import { tamperSignature } from "@/lib/stripe-test-signature";
 
 vi.mock("server-only", () => ({}));
 
@@ -148,7 +149,7 @@ describe("webhook pipeline (route + service + DB)", () => {
 
   it("leaves the DB untouched on an invalid signature", async () => {
     const s = await seed();
-    const res = await post(s.body, sign(s.body).replace(/v1=[0-9a-f]/, "v1=0"));
+    const res = await post(s.body, tamperSignature(sign(s.body)));
     expect(res.status).toBe(400);
     expect((await attemptRow(s.attemptId)).status).toBe("pending");
     expect((await projectRow(s.projectId)).status).toBe("proposal_selected");

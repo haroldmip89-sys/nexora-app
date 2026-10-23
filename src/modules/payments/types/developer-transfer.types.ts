@@ -64,7 +64,7 @@ export type DeveloperTransferItem = {
 };
 
 /** Authorization failures go through handleAuthErrorForPage. */
-export type TransferActionResult = { ok: false; code: "UNKNOWN"; message: string };
+export type TransferActionResult = { ok: false; code: "RATE_LIMITED" | "UNKNOWN"; message: string };
 
 export type RetryTransfersActionResult =
   | ({ ok: true } & RetryTransfersResult)

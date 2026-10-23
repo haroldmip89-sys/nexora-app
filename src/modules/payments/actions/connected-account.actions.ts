@@ -13,6 +13,7 @@ import {
   syncConnectedAccount,
 } from "@/modules/payments/services/connected-account.service";
 import { retryDeveloperTransfers } from "@/modules/payments/services/developer-transfer.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type {
   ConnectedAccountActionResult,
   RefreshConnectedAccountResult,
@@ -46,6 +47,9 @@ async function requireDeveloper() {
 export async function startPayoutOnboardingAction(): Promise<ConnectedAccountActionResult> {
   const actor = await requireDeveloper();
 
+  const limit = await enforceRateLimit(actor, "payout.onboarding");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
+
   let onboardingUrl: string;
   try {
     ({ onboardingUrl } = await startOnboarding(actor));
@@ -60,6 +64,9 @@ export async function startPayoutOnboardingAction(): Promise<ConnectedAccountAct
 /** Re-reads the connected account from Stripe and stores the derived status (spec 011a RF7). */
 export async function refreshConnectedAccountAction(): Promise<RefreshConnectedAccountResult> {
   const actor = await requireDeveloper();
+
+  const limit = await enforceRateLimit(actor, "payout.refresh");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   let status;
   try {

@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   createCheckoutForProject: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((url: string) => {
@@ -20,6 +21,10 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 }));
 vi.mock("@/modules/payments/services/payment-checkout.service", () => ({
   createCheckoutForProject: mocks.createCheckoutForProject,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  enforceRateLimit: mocks.enforceRateLimit,
+  RATE_LIMITED_MESSAGE: "rate limited test message",
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect, notFound: mocks.notFound }));
@@ -44,6 +49,7 @@ const ERROR_CODES: PaymentErrorCode[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.createCheckoutForProject.mockReset();
   mocks.createCheckoutForProject.mockResolvedValue({
     attemptId: "a-1",
@@ -162,5 +168,31 @@ describe("startCheckoutAction", () => {
     mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
     await expect(startCheckoutAction("bad")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mocks.createCheckoutForProject).not.toHaveBeenCalled();
+  });
+});
+
+describe("startCheckoutAction rate limit", () => {
+  it("checks the checkout.start policy after requireRole", async () => {
+    await startCheckoutAction(PROJECT_ID).catch(() => undefined);
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ role: "client" }), "checkout.start");
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enforceRateLimit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns RATE_LIMITED without calling the service when blocked", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(startCheckoutAction(PROJECT_ID)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "rate limited test message",
+    });
+    expect(mocks.createCheckoutForProject).not.toHaveBeenCalled();
+  });
+
+  it("does not consume quota when the role check fails", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await startCheckoutAction(PROJECT_ID).catch(() => undefined);
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });

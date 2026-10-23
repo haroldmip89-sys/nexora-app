@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import { getAccountLink, getDashboardLink } from "@/modules/auth/services/dashboard-link";
 import type { NavViewer } from "@/modules/auth/types/nav-viewer.types";

@@ -79,6 +79,6 @@ export type ProjectActionResult =
   | { ok: true }
   | {
       ok: false;
-      code: ProjectErrorCode | "VALIDATION" | "NOT_FOUND" | "UNKNOWN";
+      code: ProjectErrorCode | "VALIDATION" | "NOT_FOUND" | "RATE_LIMITED" | "UNKNOWN";
       message: string;
     };

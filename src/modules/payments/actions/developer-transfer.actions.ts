@@ -5,6 +5,7 @@ import { unstable_rethrow } from "next/navigation";
 import { AuthError, handleAuthErrorForPage } from "@/modules/auth/services/auth-errors";
 import { requireRole } from "@/modules/auth/services/current-user.service";
 import { retryDeveloperTransfers } from "@/modules/payments/services/developer-transfer.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type { RetryTransfersActionResult } from "@/modules/payments/types/developer-transfer.types";
 
 const GENERIC_MESSAGE = "No pudimos completar la acción. Inténtalo de nuevo.";
@@ -18,6 +19,9 @@ export async function retryTransfersAction(): Promise<RetryTransfersActionResult
     unstable_rethrow(e);
     return handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "transfer.retry");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   let result;
   try {

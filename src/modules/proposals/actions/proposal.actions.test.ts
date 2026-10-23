@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   createProposal: vi.fn(),
   updateProposal: vi.fn(),
   withdrawProposal: vi.fn(),
@@ -24,6 +25,10 @@ vi.mock("@/modules/proposals/services/proposal.service", () => ({
   createProposal: mocks.createProposal,
   updateProposal: mocks.updateProposal,
   withdrawProposal: mocks.withdrawProposal,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  RATE_LIMITED_MESSAGE: "limited",
+  enforceRateLimit: mocks.enforceRateLimit,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect, notFound: mocks.notFound }));
@@ -73,6 +78,7 @@ beforeEach(() => {
   mocks.withdrawProposal.mockReset();
   mocks.withdrawProposal.mockResolvedValue({ id: PROPOSAL_ID, projectId: PROJECT_ID });
   mocks.requireRole.mockResolvedValue(developer);
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("createProposalAction", () => {
@@ -265,6 +271,49 @@ describe("updateProposalAction", () => {
       "NEXT_NOT_FOUND",
     );
     expect(mocks.updateProposal).not.toHaveBeenCalled();
+  });
+});
+
+describe("rate limiting (spec 015)", () => {
+  const limited = { ok: false, retryAfterSeconds: 30 };
+
+  it("create/update: blocked limiter skips the service and returns a form error", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(limited);
+    await expect(createProposalAction(PROJECT_ID, idle, validForm())).resolves.toMatchObject({
+      status: "error",
+      message: "limited",
+    });
+    await expect(updateProposalAction(PROPOSAL_ID, idle, validForm())).resolves.toMatchObject({
+      status: "error",
+      message: "limited",
+    });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(developer, "proposal.write");
+    expect(mocks.createProposal).not.toHaveBeenCalled();
+    expect(mocks.updateProposal).not.toHaveBeenCalled();
+  });
+
+  it("withdraw: blocked limiter returns RATE_LIMITED without the service", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(limited);
+    await expect(withdrawProposalAction(PROPOSAL_ID)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "limited",
+    });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(developer, "proposal.write");
+    expect(mocks.withdrawProposal).not.toHaveBeenCalled();
+  });
+
+  it("allowed limiter keeps the normal flow", async () => {
+    await expect(withdrawProposalAction(PROPOSAL_ID)).resolves.toEqual({ ok: true });
+    expect(mocks.withdrawProposal).toHaveBeenCalledWith(developer, PROPOSAL_ID);
+  });
+
+  it("wrong role does not consume quota", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await expect(createProposalAction(PROJECT_ID, idle, validForm())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(updateProposalAction(PROPOSAL_ID, idle, validForm())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(withdrawProposalAction(PROPOSAL_ID)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });
 

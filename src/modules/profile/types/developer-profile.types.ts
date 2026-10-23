@@ -75,7 +75,7 @@ export type DeveloperProfileFieldErrors = Partial<Record<DeveloperProfileFieldNa
 export type SaveDeveloperProfileResult =
   | { ok: true }
   | { ok: false; code: "VALIDATION"; fieldErrors: DeveloperProfileFieldErrors }
-  | { ok: false; code: "UNKNOWN"; message: string };
+  | { ok: false; code: "RATE_LIMITED" | "UNKNOWN"; message: string };
 
 /** Contract for spec 020 (declared here ONLY; 020 imports it, never redeclares it). */
 export type DeveloperRatingSummary = { average: number | null; count: number };

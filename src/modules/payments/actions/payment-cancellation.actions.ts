@@ -9,6 +9,7 @@ import {
   PAYMENT_ERROR_MESSAGES,
   PaymentError,
 } from "@/modules/payments/services/payment-errors";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type {
   CancelPaymentActionResult,
   CancelPaymentResult,
@@ -41,6 +42,9 @@ export async function cancelPendingPaymentAction(
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "payment.cancel");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   const parsed = startCheckoutInputSchema.safeParse({ projectId });
   if (!parsed.success) return { ok: false, code: "NOT_FOUND", message: NOT_FOUND_MESSAGE };

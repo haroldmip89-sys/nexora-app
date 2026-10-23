@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import type Stripe from "stripe";
 import { describe, expect, it } from "vitest";
 import type { ConnectedAccountSnapshot } from "@/modules/payments/types/connected-account.types";

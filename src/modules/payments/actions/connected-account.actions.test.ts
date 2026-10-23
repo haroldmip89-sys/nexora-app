@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   startOnboarding: vi.fn(),
   syncConnectedAccount: vi.fn(),
   retryDeveloperTransfers: vi.fn(),
@@ -27,6 +28,10 @@ vi.mock("@/modules/payments/services/connected-account.service", () => ({
 }));
 vi.mock("@/modules/payments/services/developer-transfer.service", () => ({
   retryDeveloperTransfers: mocks.retryDeveloperTransfers,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  enforceRateLimit: mocks.enforceRateLimit,
+  RATE_LIMITED_MESSAGE: "rate limited test message",
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({
@@ -58,6 +63,7 @@ const GENERIC = "No pudimos completar la acción. Inténtalo de nuevo.";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.requireRole.mockReset().mockResolvedValue(developer);
   mocks.startOnboarding.mockReset().mockResolvedValue({ onboardingUrl: ONBOARDING_URL });
   mocks.syncConnectedAccount.mockReset().mockResolvedValue({ status: "active" });
@@ -166,5 +172,57 @@ describe("refreshConnectedAccountAction", () => {
   it("never returns Stripe ids or URLs", async () => {
     const result = await refreshConnectedAccountAction();
     expect(JSON.stringify(result)).not.toMatch(/acct_|stripe\.com/);
+  });
+});
+
+describe("startPayoutOnboardingAction rate limit", () => {
+  it("checks the payout.onboarding policy after requireRole", async () => {
+    await startPayoutOnboardingAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ role: "developer" }), "payout.onboarding");
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enforceRateLimit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns RATE_LIMITED without calling the service when blocked", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(startPayoutOnboardingAction()).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "rate limited test message",
+    });
+    expect(mocks.startOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("does not consume quota when the role check fails", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await startPayoutOnboardingAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
+  });
+});
+
+describe("refreshConnectedAccountAction rate limit", () => {
+  it("checks the payout.refresh policy after requireRole", async () => {
+    await refreshConnectedAccountAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ role: "developer" }), "payout.refresh");
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enforceRateLimit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns RATE_LIMITED without calling the service when blocked", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(refreshConnectedAccountAction()).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "rate limited test message",
+    });
+    expect(mocks.syncConnectedAccount).not.toHaveBeenCalled();
+  });
+
+  it("does not consume quota when the role check fails", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await refreshConnectedAccountAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });

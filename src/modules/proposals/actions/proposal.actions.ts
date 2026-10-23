@@ -14,6 +14,7 @@ import {
   updateProposal,
   withdrawProposal,
 } from "@/modules/proposals/services/proposal.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type {
   ProposalActionResult,
   ProposalFormState,
@@ -91,6 +92,9 @@ export async function createProposalAction(
     handleAuthErrorForPage(e);
   }
 
+  const limit = await enforceRateLimit(actor, "proposal.write");
+  if (!limit.ok) return formError(formData, RATE_LIMITED_MESSAGE);
+
   if (!isValidId(projectId)) return formError(formData, NOT_FOUND_MESSAGE);
 
   const parsed = parseProposalForm(formData);
@@ -120,6 +124,9 @@ export async function updateProposalAction(
     handleAuthErrorForPage(e);
   }
 
+  const limit = await enforceRateLimit(actor, "proposal.write");
+  if (!limit.ok) return formError(formData, RATE_LIMITED_MESSAGE);
+
   if (!isValidId(proposalId)) return formError(formData, NOT_FOUND_MESSAGE);
 
   const parsed = parseProposalForm(formData);
@@ -145,6 +152,9 @@ export async function withdrawProposalAction(proposalId: string): Promise<Propos
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "proposal.write");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   if (!isValidId(proposalId)) {
     return { ok: false, code: "NOT_FOUND", message: NOT_FOUND_MESSAGE };

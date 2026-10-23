@@ -40,7 +40,7 @@ export type ProjectPaymentOverview = {
 
 export type PaymentActionResult = {
   ok: false;
-  code: PaymentErrorCode | "NOT_FOUND" | "UNKNOWN";
+  code: PaymentErrorCode | "NOT_FOUND" | "RATE_LIMITED" | "UNKNOWN";
   message: string;
 };
 

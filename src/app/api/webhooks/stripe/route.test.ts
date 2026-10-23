@@ -7,6 +7,7 @@ vi.mock("@/modules/payments/services/payment-event.service", () => ({ handleStri
 
 import { NextRequest } from "next/server";
 import { POST, runtime } from "@/app/api/webhooks/stripe/route";
+import { tamperSignature } from "@/lib/stripe-test-signature";
 import { handleStripeEvent } from "@/modules/payments/services/payment-event.service";
 
 const SECRET = "whsec_test_secret";
@@ -57,7 +58,7 @@ describe("POST /api/webhooks/stripe", () => {
   it.each([
     ["missing header", () => request(payload)],
     ["empty header", () => request(payload, "")],
-    ["tampered signature", () => request(payload, sign(payload).replace(/v1=[0-9a-f]/, "v1=0"))],
+    ["tampered signature", () => request(payload, tamperSignature(sign(payload)))],
     ["tampered body", () => request(`${payload} `, sign(payload))],
     ["wrong secret", () => request(payload, sign(payload, { secret: "whsec_other" }))],
     [
@@ -85,6 +86,26 @@ describe("POST /api/webhooks/stripe", () => {
     const logged = JSON.stringify(vi.mocked(console.error).mock.calls);
     expect(logged).not.toContain(signature);
     if (value) expect(logged).not.toContain(value);
+  });
+
+  it("returns 413 by Content-Length without reading the body", async () => {
+    const req = new NextRequest("http://localhost/api/webhooks/stripe", {
+      method: "POST",
+      body: payload,
+      headers: { "stripe-signature": sign(payload), "content-length": String(1024 * 1024 + 1) },
+    });
+    const textSpy = vi.spyOn(req, "text");
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    expect(textSpy).not.toHaveBeenCalled();
+    expect(handleStripeEvent).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 when an oversized body has no valid Content-Length", async () => {
+    const big = "x".repeat(1024 * 1024 + 1);
+    const res = await POST(request(big, sign(big)));
+    expect(res.status).toBe(413);
+    expect(handleStripeEvent).not.toHaveBeenCalled();
   });
 
   it("returns 500 when the service throws, without logging the payload", async () => {

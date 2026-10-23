@@ -217,6 +217,7 @@ Notas:
 - **Connect solo en modo de prueba (spec 011a).** Las cuentas conectadas usan el mismo cliente `getStripe()`, que rechaza claves live, y desde 011c se crean con Accounts v2 (`stripe.v2.core.accounts`, Account Links v2); la opción de compatibilidad con Accounts v1 del Dashboard ya no es necesaria. Requiere activar Connect en el Dashboard de Stripe en modo de prueba (precondición manual).
 - **Separate charges and transfers.** El Checkout sigue cobrando en la cuenta de plataforma; la transferencia al desarrollador es posterior e independiente (011b).
 - **Transferencia de prueba (spec 011b).** Al pasar el pago a `completed_test` (webhook verificado o reconciliación), `applySessionOutcome` inserta en la misma transacción una fila `developer_transfers` `pending`. Después del commit, `runTransferForAttempt` (nunca lanza) relee la cuenta conectada, lee el PaymentIntent y llama a `stripe.transfers.create` (importe completo de la BD, USD, sin comisión, `source_transaction`, clave `nexora:transfer:<id>:<generación>`). Nunca hay llamadas a Stripe dentro de una transacción, y una falla de la transferencia nunca hace fallar el webhook. Los motivos se guardan como códigos propios; los mensajes de Stripe solo van a logs saneados. Reintento sin cron: tras el pago, al volver del onboarding o al "Actualizar estado" con cuenta `active`, y manual del desarrollador.
+- **Tope del cuerpo del webhook (spec 015).** El webhook de Stripe responde `413` si el cuerpo supera 1 MiB (por `Content-Length` sin leerlo, o al leerlo con el mismo tope); no se limita por IP y la firma sigue siendo la única autenticación. Los códigos 200/400/500 no cambian.
 - **Sincronización por relectura.** El estado de la cuenta conectada se actualiza leyendo la cuenta servidor a servidor al volver del onboarding y con el botón "Actualizar estado". El webhook `account.updated` queda diferido; el endpoint de 010 no recibe eventos de cuentas conectadas.
 
 ---
@@ -335,5 +336,22 @@ Los ids son los de la spec 012; no sustituyen a los D-x de otras specs.
 | 013-D-J | Del cliente solo el nombre abreviado; contacto externo diferido | 013 |
 | 013-D-K | Aviso de Modo de prueba; transferencia siempre como de prueba, nunca "recibida" | 013 |
 | 013-D-L | Sin llamadas a Stripe en lecturas del panel | 013 |
+
+### Seguridad del MVP (spec 015, aprobadas)
+
+Los ids son los de la spec 015 (015-D1 a 015-D10); no sustituyen a los D1-D11 de §8.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 015-D1 | Almacenamiento del limitador: tabla `rate_limit_hits` en Neon (upsert atómico); memoria solo en tests; Upstash como reemplazo futuro | 015 |
+| 015-D2 | Interfaz mínima `RateLimitStore` + `createRateLimiter` de ventana fija en `src/lib`; adaptador de Neon en el módulo `security`; limpieza oportunista 1/100 de filas de más de 1 día | 015 |
+| 015-D3 | Webhook de Stripe sin límite por IP; solo tope de 1 MiB del cuerpo (`413`); la firma sigue siendo la única autenticación; Clerk sin cambios | 015 |
+| 015-D4 | Clave `<política>:<users.id>`; logs del limitador sin userId, correo ni IP | 015 |
+| 015-D5 | Fail-open si el almacenamiento falla; el limitador no es un control de autorización | 015 |
+| 015-D6 | Políticas por usuario y ventana fija, definidas en un solo archivo | 015 |
+| 015-D7 | El límite se aplica en la acción, después de `requireRole` y antes del servicio; resultado `RATE_LIMITED` en español | 015 |
+| 015-D8 | Cabeceras estáticas en `next.config.ts` (nosniff, Referrer-Policy, X-Frame-Options, Permissions-Policy, HSTS sin `includeSubDomains`/`preload`) y `poweredByHeader: false` | 015 |
+| 015-D9 | CSP vía `clerkMiddleware` en `Report-Only`; el paso a enforce lo decide un humano (017) | 015 |
+| 015-D10 | `safeErrorLog(error)` devuelve solo `{ name, code? }` y sustituye al objeto de error en los logs de H4 | 015 |
 
 Cualquier cambio de arquitectura requiere una spec aprobada.

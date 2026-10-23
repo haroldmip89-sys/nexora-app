@@ -14,6 +14,7 @@ import {
   unpublishProject,
   updateProject,
 } from "@/modules/projects/services/project.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type {
   ProjectActionResult,
   ProjectFormState,
@@ -92,6 +93,9 @@ export async function createProjectAction(
     handleAuthErrorForPage(e);
   }
 
+  const limit = await enforceRateLimit(actor, "project.write");
+  if (!limit.ok) return formError(formData, RATE_LIMITED_MESSAGE);
+
   const parsed = parseProjectForm(formData);
   if (!parsed.success) {
     return formError(formData, "Revisa los campos marcados.", parsed.fieldErrors, parsed.values);
@@ -118,6 +122,9 @@ export async function updateProjectAction(
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "project.write");
+  if (!limit.ok) return formError(formData, RATE_LIMITED_MESSAGE);
 
   if (!isValidId(projectId)) return formError(formData, NOT_FOUND_MESSAGE);
 
@@ -152,6 +159,9 @@ async function runLifecycle(
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "project.write");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   if (!isValidId(projectId)) {
     return { ok: false, code: "NOT_FOUND", message: NOT_FOUND_MESSAGE };

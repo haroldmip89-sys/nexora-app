@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { safeErrorLog } from "@/lib/safe-error-log";
 import { PublicCatalogFilters } from "@/modules/projects/components/public-catalog-filters";
 import { PublicCatalogResults } from "@/modules/projects/components/public-catalog-results";
 import { PublicCatalogSkeleton } from "@/modules/projects/components/public-catalog-skeleton";
@@ -26,7 +27,7 @@ export default async function PublicProjectsPage({ searchParams }: Props) {
   try {
     technologies = await listTechnologies();
   } catch (error) {
-    console.error("listTechnologies failed", error);
+    console.error("listTechnologies failed", safeErrorLog(error));
   }
 
   return (

@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   reconcileProjectPayment: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((url: string) => {
@@ -20,6 +21,10 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 }));
 vi.mock("@/modules/payments/services/payment-reconciliation.service", () => ({
   reconcileProjectPayment: mocks.reconcileProjectPayment,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  enforceRateLimit: mocks.enforceRateLimit,
+  RATE_LIMITED_MESSAGE: "rate limited test message",
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect, notFound: mocks.notFound }));
@@ -43,6 +48,7 @@ const ERROR_CODES: PaymentErrorCode[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.reconcileProjectPayment.mockReset();
   mocks.reconcileProjectPayment.mockResolvedValue({ outcome: "completed" });
   mocks.requireRole.mockReset();
@@ -140,5 +146,31 @@ describe("refreshPaymentStatusAction", () => {
     mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
     await expect(refreshPaymentStatusAction("bad")).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mocks.reconcileProjectPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe("refreshPaymentStatusAction rate limit", () => {
+  it("checks the payment.refresh policy after requireRole", async () => {
+    await refreshPaymentStatusAction(PROJECT_ID).catch(() => undefined);
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ role: "client" }), "payment.refresh");
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enforceRateLimit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns RATE_LIMITED without calling the service when blocked", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(refreshPaymentStatusAction(PROJECT_ID)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "rate limited test message",
+    });
+    expect(mocks.reconcileProjectPayment).not.toHaveBeenCalled();
+  });
+
+  it("does not consume quota when the role check fails", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await refreshPaymentStatusAction(PROJECT_ID).catch(() => undefined);
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });

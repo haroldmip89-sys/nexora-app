@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   createDeveloperRating: vi.fn(),
   updateDeveloperRating: vi.fn(),
   revalidatePath: vi.fn(),
@@ -23,6 +24,10 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 vi.mock("@/modules/ratings/services/rating.service", () => ({
   createDeveloperRating: mocks.createDeveloperRating,
   updateDeveloperRating: mocks.updateDeveloperRating,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  RATE_LIMITED_MESSAGE: "limited",
+  enforceRateLimit: mocks.enforceRateLimit,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({
@@ -51,6 +56,7 @@ function form(entries: Record<string, string>) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireRole.mockReset().mockResolvedValue(client);
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.createDeveloperRating.mockReset().mockResolvedValue({ developerId: "u-dev" });
   mocks.updateDeveloperRating.mockReset().mockResolvedValue({ developerId: "u-dev" });
 });
@@ -76,6 +82,24 @@ describe.each([
     await expect(action(PROJECT_ID, idle, form({ rating: "5" }))).rejects.toThrow(expected);
     expect(service).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("blocked limiter skips the service and returns the rate limit message with values", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    const result = await action(PROJECT_ID, idle, form({ rating: "5", comment: "hi" }));
+    expect(result).toMatchObject({
+      status: "error",
+      message: "limited",
+      values: { rating: "5", comment: "hi" },
+    });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(client, "rating.write");
+    expect(service).not.toHaveBeenCalled();
+  });
+
+  it("wrong role does not consume quota", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await expect(action(PROJECT_ID, idle, form({ rating: "5" }))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 
   it("rethrows what unstable_rethrow rethrows around auth", async () => {

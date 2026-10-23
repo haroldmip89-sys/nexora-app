@@ -11,6 +11,7 @@ import {
   createDeveloperRating,
   updateDeveloperRating,
 } from "@/modules/ratings/services/rating.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type {
   RatingFieldErrors,
   RatingFormState,
@@ -45,6 +46,9 @@ async function submitRating(
     unstable_rethrow(e);
     return handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "rating.write");
+  if (!limit.ok) return errorState(RATE_LIMITED_MESSAGE, values);
 
   if (!z.uuid().safeParse(projectId).success) return errorState(NOT_FOUND_MESSAGE, values);
 

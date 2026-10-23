@@ -1,4 +1,5 @@
 import "server-only";
+import { safeErrorLog } from "@/lib/safe-error-log";
 import { AuthError } from "@/modules/auth/services/auth-errors";
 import { getSessionUserId } from "@/modules/auth/services/clerk-identity.service";
 import { getCurrentUser } from "@/modules/auth/services/current-user.service";
@@ -20,7 +21,7 @@ export async function resolvePublicViewer(projectId: string): Promise<PublicView
     return (await getSessionUserId()) ? { kind: "needs_onboarding" } : { kind: "visitor" };
   } catch (error) {
     if (error instanceof AuthError) throw error;
-    console.error("resolvePublicViewer failed", error);
+    console.error("resolvePublicViewer failed", safeErrorLog(error));
     return { kind: "visitor" };
   }
 }

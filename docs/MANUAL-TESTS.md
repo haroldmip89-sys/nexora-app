@@ -457,6 +457,37 @@ Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se
 - [ ] (d) En `/dashboard/account` (desarrollador) solo "Mi cuenta" está marcado como página actual (en `/dashboard` y `/dashboard/proposals`, "Mi panel").
 - [ ] (e) A 390 px los diálogos no se desbordan.
 
+## 8j. Spec 015 — Seguridad (rate limiting y CSP)
+
+### Preparación
+
+- [ ] (a) Aplica la migración antes de probar el limitador: `npm run db:migrate` (migración `drizzle/0009_dazzling_captain_america.sql`, tabla `rate_limit_hits`). Solo lo corre el humano.
+
+### Rate limiting
+
+- [ ] (b) Con una cuenta Cliente, supera el límite de una acción, por ejemplo "Actualizar estado" del pago (20 en 5 min): al pasarlo aparece el mensaje en español "Hiciste demasiadas solicitudes seguidas. Espera un momento e inténtalo de nuevo." sin códigos internos.
+- [ ] (c) Pasada la ventana (5 min), la acción vuelve a funcionar.
+- [ ] (d) Otra cuenta no queda bloqueada por el límite de la primera.
+- [ ] (e) El log del servidor solo muestra la política bloqueada (`[rate-limit] blocked`), sin id de usuario, correo ni IP.
+
+### CSP en modo Report-Only (AC8)
+
+- [ ] (f) Inicio de sesión, registro y onboarding funcionan igual que antes.
+- [ ] (g) `/projects/<id>/payment` carga, la redirección a Stripe Checkout funciona y la vuelta a la app también.
+- [ ] (h) El onboarding de cobros (Stripe Connect) funciona y vuelve a la app.
+- [ ] (i) En la consola del navegador no hay violaciones de CSP sin explicar; las que aparezcan se resuelven en `directives` o se anotan aquí.
+- [ ] (j) En Network, las respuestas de páginas traen `Content-Security-Policy-Report-Only` (no `Content-Security-Policy`) y las cabeceras `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy` y `Strict-Transport-Security`; no hay `x-powered-by`.
+- [ ] (k) `/api/webhooks/*` responde igual que antes (el webhook de Stripe con `stripe listen` sigue en 200; sin firma, 400).
+- [ ] (l) Pasar la CSP a enforce lo decide un humano en la spec 017, tras esta lista.
+
+## 8k. Spec 016 — Testing transversal
+
+- [ ] (a) `npm run verify` (lint, tests y build) termina en verde.
+- [ ] (b) `npm run test:coverage` termina en verde y respeta los umbrales (sentencias 73, ramas 59, funciones 62, líneas 73).
+- [ ] (c) Bucle AC2: `src/app/api/webhooks/stripe/route.test.ts` y `route.flow.test.ts` pasan 50 veces seguidas cada uno, por ejemplo `for i in $(seq 50); do npx vitest run <archivo> || break; done`, sin ningún fallo (usan `tamperSignature`).
+- [ ] (d) Nota: `coverage/` no está en `globalIgnores` de `eslint.config.mjs`; si `npm run lint` se ejecuta con una carpeta `coverage/` generada y reporta ruido, bórrala o añade la carpeta a los ignores (el archivo no lo toca esta tarea).
+- [ ] (e) Los bloqueos reales de Postgres y la concurrencia entre conexiones siguen verificándose a mano (8f y 8g); ver sección 10.
+
 ## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
@@ -469,10 +500,17 @@ Estas notas no bloquean, pero conviene tenerlas a la vista:
 
 - La spec 010 refleja el pago por webhook verificado o por "Actualizar estado"; sin `stripe listen` (o un endpoint de webhook en despliegue, spec 017) un pago hecho en Stripe solo se confirma pulsando ese botón. 009 y 010 no deben llegar a usuarios finales por separado.
 - Un intento de pago abandonado se cancela con el evento `checkout.session.expired` o con "Actualizar estado"; si el webhook falta y el cliente no vuelve, queda `pending` y bloquea el cierre (`PAYMENT_IN_PROGRESS`) hasta cancelarlo. La cancelación explícita ya existe (spec 012): el cliente pulsa "Cancelar pago de prueba" en `/dashboard` o en la página de pago del proyecto, confirma el diálogo y, cuando Stripe confirma la sesión como `expired`, el intento queda `canceled` y puede reintentar el pago o cerrar el proyecto (sección 8g).
-- Rate limiting del endpoint del webhook y de la acción de refresco: pendiente (spec 015).
-- Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno. El rate limiting de las acciones y rutas de cobros queda para la spec 015.
+- Rate limiting de las acciones sensibles (incluido el refresco de pago y de cuenta de cobros): resuelto en la spec 015 (límite por usuario en Neon; pruebas en la sección 8j).
+- Webhook de Stripe (spec 015, D3): no se limita por IP; tiene un tope de 1 MiB del cuerpo (responde `413`) y la firma sigue siendo la única autenticación. Un techo por IP, si hiciera falta, se resolvería con Upstash en la spec 017.
+- Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno.
 - El header global ya existe (spec 009b, sección 7b). El landing de `/` y la metadata global (título, `lang`, 404 con marca) siguen pendientes; la spec 006 los recomendó en una spec propia (`006b-landing-and-site-header`).
 - La paginación del catálogo solo tiene "Anterior / Siguiente", sin números de página.
 - Un proyecto publicado con una categoría que ya no esté en la lista no podría editar su título. Es hipotético hasta que cambie la lista de categorías.
-- `npm audit` reporta vulnerabilidades en el árbol de dependencias. Pendiente de revisar antes del despliegue.
-- Los tests no demuestran los bloqueos reales de Postgres (`FOR UPDATE`, `FOR SHARE`) porque PGlite tiene una sola conexión. Se validaron leyendo el SQL. La spec 016 debería cubrirlos contra una rama real de Neon.
+- `npm audit` (spec 016, T0): las vulnerabilidades de producción críticas quedaron corregidas. `npm audit` pasó de 17 (1 crítica, 11 altas, 5 moderadas) a 15 (0 críticas, 10 altas, 5 moderadas); con `--omit=dev` pasó de 10 (incluía `next` crítica) a 9 y `next` ya no aparece. `next` subió de 16.3.8 a 16.4.2 (corrige RCE del optimizador de imágenes SVG, RCE de `use cache` y DoS de Server Actions), `eslint-config-next` a 16.4.2 y `vite` de 8.3.2 a 8.3.5 (sin avisos). Nunca se usa `npm audit fix --force`. Quedan registradas sin aplicar porque npm solo propone majors o downgrades (`shadcn@1.0.0`, `drizzle-kit@0.18.1`, `eslint-config-next@14.2.35`):
+  - CLI `shadcn` y su cadena (`@shadcn/registry`, `ts-morph`, `@ts-morph/common`, `braces`, `micromatch`, `fast-glob`, `@modelcontextprotocol/sdk`, `ip-address`): en runtime solo se importa `shadcn/tailwind.css` (CSS de build).
+  - `drizzle-kit`, `esbuild` y `@esbuild-kit/*`: herramientas de desarrollo.
+  - `eslint-config-next` y `@next/eslint-plugin-next`: herramientas de desarrollo.
+
+  Ninguna llega al bundle ni al servidor. Revisar cuando salgan versiones corregidas.
+- Bloqueos reales de Postgres/Neon (`FOR UPDATE`, `FOR SHARE`, upsert `ON CONFLICT` del rate limit) y concurrencia entre conexiones: **no están cubiertos por la suite** (PGlite tiene una sola conexión). Se probaron a mano en 8f y 8g, y no hay suite contra Neon (decisión Q2 de la spec 016). Los tests de PGlite solo demuestran la coherencia del resultado.
+- Cobertura (spec 016): global medida con `npm run test:coverage` en sentencias 75.90, ramas 61.76, funciones 64.02 y líneas 75.14; umbrales en 73/59/62/73.

@@ -1,6 +1,6 @@
 # Seguridad del MVP: rate limiting y endurecimiento
 
-Estado: aprobada
+Estado: done
 
 Spec 015 de `docs/SDD-PLAN.md §8` (Fase 5; el plan la nombra `security-and-privacy`, aquí se usa el slug `security-hardening` por el patrón `NNN-slug` y por su alcance real). Cierra los pendientes "rate limiting del webhook y de la acción de refresco" de `docs/MANUAL-TESTS.md §10` (specs 010 y 011a). Formato y patrones: specs 010, 011a/b/c, 012 y 014.
 

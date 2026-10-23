@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   retryDeveloperTransfers: vi.fn(),
   revalidatePath: vi.fn(),
   notFound: vi.fn(() => {
@@ -19,6 +20,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/modules/auth/services/current-user.service", () => ({ requireRole: mocks.requireRole }));
 vi.mock("@/modules/payments/services/developer-transfer.service", () => ({
   retryDeveloperTransfers: mocks.retryDeveloperTransfers,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  enforceRateLimit: mocks.enforceRateLimit,
+  RATE_LIMITED_MESSAGE: "rate limited test message",
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({
@@ -35,6 +40,7 @@ const counters = { attempted: 2, completed: 1, pending: 1, failed: 0 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.requireRole.mockReset().mockResolvedValue(developer);
   mocks.retryDeveloperTransfers.mockReset().mockResolvedValue(counters);
 });
@@ -82,5 +88,31 @@ describe("retryTransfersAction", () => {
     });
     expect(JSON.stringify(result)).not.toMatch(/neon|acct_|sk_test/i);
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("retryTransfersAction rate limit", () => {
+  it("checks the transfer.retry policy after requireRole", async () => {
+    await retryTransfersAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(expect.objectContaining({ role: "developer" }), "transfer.retry");
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.enforceRateLimit.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns RATE_LIMITED without calling the service when blocked", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(retryTransfersAction()).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "rate limited test message",
+    });
+    expect(mocks.retryDeveloperTransfers).not.toHaveBeenCalled();
+  });
+
+  it("does not consume quota when the role check fails", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await retryTransfersAction().catch(() => undefined);
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ import {
   PaymentError,
 } from "@/modules/payments/services/payment-errors";
 import { reconcileProjectPayment } from "@/modules/payments/services/payment-reconciliation.service";
+import { RATE_LIMITED_MESSAGE, enforceRateLimit } from "@/modules/security/services/rate-limit.service";
 import type { ReconcileResult, RefreshActionResult } from "@/modules/payments/types/payment.types";
 
 const NOT_FOUND_MESSAGE = "No encontramos el proyecto.";
@@ -36,6 +37,9 @@ export async function refreshPaymentStatusAction(projectId: string): Promise<Ref
   } catch (e) {
     handleAuthErrorForPage(e);
   }
+
+  const limit = await enforceRateLimit(actor, "payment.refresh");
+  if (!limit.ok) return { ok: false, code: "RATE_LIMITED", message: RATE_LIMITED_MESSAGE };
 
   const parsed = startCheckoutInputSchema.safeParse({ projectId });
   if (!parsed.success) return { ok: false, code: "NOT_FOUND", message: NOT_FOUND_MESSAGE };

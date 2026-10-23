@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
+import { safeErrorLog } from "@/lib/safe-error-log";
 import { cn } from "@/lib/utils";
 import { PublicProjectCard } from "@/modules/projects/components/public-project-card";
 import { buildCatalogHref } from "@/modules/projects/schemas/public-catalog.schema";
@@ -56,7 +57,7 @@ export async function PublicCatalogResults({ query }: Props) {
   try {
     data = await listPublicProjects(query);
   } catch (error) {
-    console.error("listPublicProjects failed", error);
+    console.error("listPublicProjects failed", safeErrorLog(error));
     return (
       <EmptyState
         title="No pudimos cargar los proyectos"

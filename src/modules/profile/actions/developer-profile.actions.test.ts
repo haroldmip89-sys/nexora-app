@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   saveOwnProfile: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((url: string) => {
@@ -21,6 +22,10 @@ vi.mock("@/modules/auth/services/current-user.service", () => ({
 }));
 vi.mock("@/modules/profile/services/developer-profile.service", () => ({
   saveOwnProfile: mocks.saveOwnProfile,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  RATE_LIMITED_MESSAGE: "limited",
+  enforceRateLimit: mocks.enforceRateLimit,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({
@@ -46,6 +51,7 @@ const validInput = {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireRole.mockReset().mockResolvedValue(developer);
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
   mocks.saveOwnProfile.mockReset().mockResolvedValue(undefined);
 });
 
@@ -67,6 +73,24 @@ describe("saveDeveloperProfileAction", () => {
     await expect(saveDeveloperProfileAction({ bogus: true })).rejects.toThrow(expected);
     expect(mocks.saveOwnProfile).not.toHaveBeenCalled();
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("blocked limiter returns RATE_LIMITED without validating or saving", async () => {
+    mocks.enforceRateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 30 });
+    await expect(saveDeveloperProfileAction(validInput)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMITED",
+      message: "limited",
+    });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(developer, "profile.save");
+    expect(mocks.saveOwnProfile).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("wrong role does not consume quota", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await expect(saveDeveloperProfileAction(validInput)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 
   it("calls unstable_rethrow around auth and rethrows what it rethrows", async () => {

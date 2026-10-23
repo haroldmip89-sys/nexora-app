@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   requireRole: vi.fn(),
+  enforceRateLimit: vi.fn(),
   createProject: vi.fn(),
   updateProject: vi.fn(),
   publishProject: vi.fn(),
@@ -28,6 +29,10 @@ vi.mock("@/modules/projects/services/project.service", () => ({
   publishProject: mocks.publishProject,
   unpublishProject: mocks.unpublishProject,
   closeProject: mocks.closeProject,
+}));
+vi.mock("@/modules/security/services/rate-limit.service", () => ({
+  RATE_LIMITED_MESSAGE: "limited",
+  enforceRateLimit: mocks.enforceRateLimit,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect, notFound: mocks.notFound }));
@@ -77,6 +82,7 @@ beforeEach(() => {
     fn.mockResolvedValue(undefined);
   }
   mocks.requireRole.mockResolvedValue(client);
+  mocks.enforceRateLimit.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("createProjectAction", () => {
@@ -297,6 +303,52 @@ describe.each([
     mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
     await expect(action(ID)).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mocks[serviceFn]).not.toHaveBeenCalled();
+  });
+});
+
+describe("rate limiting (spec 015)", () => {
+  const limited = { ok: false, retryAfterSeconds: 30 };
+  const lifecycle = [
+    ["publishProjectAction", publishProjectAction, mocks.publishProject],
+    ["unpublishProjectAction", unpublishProjectAction, mocks.unpublishProject],
+    ["closeProjectAction", closeProjectAction, mocks.closeProject],
+  ] as const;
+
+  it("createProjectAction: blocked limiter skips the service and returns a form error", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(limited);
+    const state = await createProjectAction(idle, validForm());
+    expect(state).toMatchObject({ status: "error", message: "limited" });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(client, "project.write");
+    expect(mocks.createProject).not.toHaveBeenCalled();
+  });
+
+  it("updateProjectAction: blocked limiter skips the service and returns a form error", async () => {
+    mocks.enforceRateLimit.mockResolvedValue(limited);
+    const state = await updateProjectAction(ID, idle, validForm());
+    expect(state).toMatchObject({ status: "error", message: "limited" });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(client, "project.write");
+    expect(mocks.updateProject).not.toHaveBeenCalled();
+    expect(mocks.publishProject).not.toHaveBeenCalled();
+  });
+
+  it.each(lifecycle)("%s: blocked limiter returns RATE_LIMITED without the service", async (_n, action, service) => {
+    mocks.enforceRateLimit.mockResolvedValue(limited);
+    await expect(action(ID)).resolves.toEqual({ ok: false, code: "RATE_LIMITED", message: "limited" });
+    expect(mocks.enforceRateLimit).toHaveBeenCalledWith(client, "project.write");
+    expect(service).not.toHaveBeenCalled();
+  });
+
+  it.each(lifecycle)("%s: allowed limiter keeps the normal flow", async (_n, action, service) => {
+    await expect(action(ID)).resolves.toEqual({ ok: true });
+    expect(service).toHaveBeenCalledWith(client, ID);
+  });
+
+  it("wrong role does not consume quota", async () => {
+    mocks.requireRole.mockRejectedValue(new AuthError("FORBIDDEN"));
+    await expect(createProjectAction(idle, validForm())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(updateProjectAction(ID, idle, validForm())).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(publishProjectAction(ID)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.enforceRateLimit).not.toHaveBeenCalled();
   });
 });
 
