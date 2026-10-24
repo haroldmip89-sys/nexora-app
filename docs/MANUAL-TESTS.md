@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 011a, 011c, 012, 013, 018 y 019 (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 011c, 012, 013, 017, 018 y 019 (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -488,6 +488,33 @@ Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se
 - [ ] (d) Nota: `coverage/` no está en `globalIgnores` de `eslint.config.mjs`; si `npm run lint` se ejecuta con una carpeta `coverage/` generada y reporta ruido, bórrala o añade la carpeta a los ignores (el archivo no lo toca esta tarea).
 - [ ] (e) Los bloqueos reales de Postgres y la concurrencia entre conexiones siguen verificándose a mano (8f y 8g); ver sección 10.
 
+## 8l. Spec 017 — Despliegue y smoke test en producción
+
+Guía de referencia: `docs/DEPLOYMENT.md` ([1. Entornos y plataforma](DEPLOYMENT.md#1-entornos-y-plataforma), [2. Variables de entorno](DEPLOYMENT.md#2-variables-de-entorno), [3. Base de datos (Neon) y migraciones](DEPLOYMENT.md#3-base-de-datos-neon-y-migraciones), [4. Clerk](DEPLOYMENT.md#4-clerk), [5. Stripe (Test Mode)](DEPLOYMENT.md#5-stripe-test-mode), [6. Seguridad previa al lanzamiento](DEPLOYMENT.md#6-seguridad-previa-al-lanzamiento), [7. Observabilidad y recuperación](DEPLOYMENT.md#7-observabilidad-y-recuperación), [8. Rollback](DEPLOYMENT.md#8-rollback), [9. Acciones del humano](DEPLOYMENT.md#9-acciones-del-humano)).
+
+La demo corre en `https://<proyecto>.vercel.app` con Clerk en modo Development y Stripe en Test Mode. En producción `stripe listen` no es necesario: el webhook lo entrega Stripe al endpoint desplegado `https://<dominio>/api/webhooks/stripe`. No pegues secretos ni URLs reales en este documento; usa solo marcadores `<...>`.
+
+### Preparación
+
+- [ ] (a) Completa antes las "Acciones del humano" ([9](DEPLOYMENT.md#9-acciones-del-humano)): variables de entorno ([2](DEPLOYMENT.md#2-variables-de-entorno)), migraciones en Neon ([3](DEPLOYMENT.md#3-base-de-datos-neon-y-migraciones)), Clerk ([4](DEPLOYMENT.md#4-clerk)) y endpoint de webhook en Stripe Test Mode ([5](DEPLOYMENT.md#5-stripe-test-mode)).
+
+### Flujo completo en producción
+
+- [ ] (b) Regístrate con dos cuentas nuevas en `https://<dominio>` y elige rol: una Cliente y una Desarrollador.
+- [ ] (c) Con la cuenta Cliente, publica un proyecto.
+- [ ] (d) Con la cuenta Desarrollador, envía una propuesta al proyecto.
+- [ ] (e) Con la cuenta Cliente, selecciona la propuesta ganadora.
+- [ ] (f) Paga en `/projects/<id>/payment` con la tarjeta de prueba `4242 4242 4242 4242` (fecha futura y CVC cualquiera) y vuelve a la app.
+- [ ] (g) Webhook recibido: en Dashboard de Stripe (Test Mode) > Developers > Webhooks, el evento `checkout.session.completed` figura con `200`, y en `processed_payment_events` existe la fila con estado `applied`.
+- [ ] (h) La transferencia de prueba al desarrollador queda en `completed_test`.
+- [ ] (i) La cuenta de cobros v2 del desarrollador (Stripe Connect) aparece `active`.
+
+### Seguridad y rollback
+
+- [ ] (j) Las cabeceras de seguridad coinciden con 8j (j): `Content-Security-Policy-Report-Only` (salvo que un humano haya pasado a enforce), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `Strict-Transport-Security`, y no hay `x-powered-by`.
+- [ ] (k) Un `POST` sin firma a `https://<dominio>/api/webhooks/stripe` (por ejemplo `curl -i -X POST https://<dominio>/api/webhooks/stripe -d '{}'`) responde 400.
+- [ ] (l) Plan de rollback ([8. Rollback](DEPLOYMENT.md#8-rollback)) revisado: se puede volver al despliegue anterior en Vercel, pero las migraciones de Drizzle solo van hacia delante. Advertencia: volver el código atrás no revierte la base de datos; antes de migrar, confirma que el código anterior tolera el esquema nuevo (o ten un respaldo/rama de Neon, ver [7](DEPLOYMENT.md#7-observabilidad-y-recuperación)).
+
 ## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
@@ -498,7 +525,7 @@ Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se
 
 Estas notas no bloquean, pero conviene tenerlas a la vista:
 
-- La spec 010 refleja el pago por webhook verificado o por "Actualizar estado"; sin `stripe listen` (o un endpoint de webhook en despliegue, spec 017) un pago hecho en Stripe solo se confirma pulsando ese botón. 009 y 010 no deben llegar a usuarios finales por separado.
+- La spec 010 refleja el pago por webhook verificado o por "Actualizar estado"; sin `stripe listen` (o un endpoint de webhook en despliegue, spec 017, ver 8l) un pago hecho en Stripe solo se confirma pulsando ese botón. 009 y 010 no deben llegar a usuarios finales por separado.
 - Un intento de pago abandonado se cancela con el evento `checkout.session.expired` o con "Actualizar estado"; si el webhook falta y el cliente no vuelve, queda `pending` y bloquea el cierre (`PAYMENT_IN_PROGRESS`) hasta cancelarlo. La cancelación explícita ya existe (spec 012): el cliente pulsa "Cancelar pago de prueba" en `/dashboard` o en la página de pago del proyecto, confirma el diálogo y, cuando Stripe confirma la sesión como `expired`, el intento queda `canceled` y puede reintentar el pago o cerrar el proyecto (sección 8g).
 - Rate limiting de las acciones sensibles (incluido el refresco de pago y de cuenta de cobros): resuelto en la spec 015 (límite por usuario en Neon; pruebas en la sección 8j).
 - Webhook de Stripe (spec 015, D3): no se limita por IP; tiene un tope de 1 MiB del cuerpo (responde `413`) y la firma sigue siendo la única autenticación. Un techo por IP, si hiciera falta, se resolvería con Upstash en la spec 017.

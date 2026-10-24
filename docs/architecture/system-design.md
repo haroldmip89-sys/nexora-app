@@ -354,4 +354,17 @@ Los ids son los de la spec 015 (015-D1 a 015-D10); no sustituyen a los D1-D11 de
 | 015-D9 | CSP vía `clerkMiddleware` en `Report-Only`; el paso a enforce lo decide un humano (017) | 015 |
 | 015-D10 | `safeErrorLog(error)` devuelve solo `{ name, code? }` y sustituye al objeto de error en los logs de H4 | 015 |
 
+### Despliegue y entornos (spec 017, aprobadas)
+
+Los ids son los de la spec 017 (017-D1 a 017-D6). Guía: `docs/DEPLOYMENT.md`.
+
+| Id | Decisión | Spec destino |
+|---|---|---|
+| 017-D1 | Entornos: local y producción en Vercel (Hobby); Preview no se configura (YAGNI); sin entorno "pruebas" separado (las pruebas usan PGlite) | 017 |
+| 017-D2 | Producción usa solo claves de Stripe Test Mode (`sk_test_`, `whsec_` del endpoint de prueba); nunca `sk_live_`/`rk_live_` | 017 |
+| 017-D3 | CSP se mantiene en `Report-Only`; enforce solo tras completar `MANUAL-TESTS.md §8j` en producción y con rollback documentado | 017 |
+| 017-D4 | HSTS sin `includeSubDomains` ni `preload` (demo en `*.vercel.app`, Clerk Development, sin dominio propio) | 017 |
+| 017-D5 | `title` y `lang` de `src/app/layout.tsx` no bloquean el despliegue; se resuelven en 006b | 017 |
+| 017-D6 | `npm run verify` ya existe y se ejecuta a mano; no hay workflow de GitHub Actions (P5 = no, sin T4/T5) | 017 |
+
 Cualquier cambio de arquitectura requiere una spec aprobada.
