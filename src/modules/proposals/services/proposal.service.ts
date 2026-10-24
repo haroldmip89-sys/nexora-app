@@ -60,6 +60,7 @@ const developerProposalColumns = {
 
 const clientSummaryColumns = {
   id: proposals.id,
+  developerId: proposals.developerId,
   developerName: users.displayName,
   priceCents: proposals.priceCents,
   timelineWeeks: proposals.timelineWeeks,

@@ -22,7 +22,7 @@ export type CheckoutStartResult = {
 
 export type ProjectPaymentOverview = {
   project: { id: string; title: string; status: ProjectStatus };
-  proposal: { developerName: string; priceCents: number; currency: "USD"; timelineWeeks: number };
+  proposal: { developerId: string; developerName: string; priceCents: number; currency: "USD"; timelineWeeks: number };
   /** Most recent attempt by created_at. */
   attempt: {
     status: PaymentAttemptStatus;

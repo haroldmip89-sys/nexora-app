@@ -15,6 +15,7 @@ function item(
     projectId: "p1",
     title: "Landing",
     status,
+    developerId: "d1",
     developerName: "Dana",
     amountCents: 1000,
     payment: attempt ? { status: attempt, updatedAt: new Date() } : null,

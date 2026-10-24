@@ -1,3 +1,4 @@
+import { DeveloperProfileLink } from "@/components/shared/developer-profile-link";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationNav } from "@/components/shared/pagination-nav";
@@ -188,7 +189,7 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
                       )}
                     >
                       <th scope="row" className="px-4 py-3 font-medium text-[#202522]">
-                        <span className="break-words">{proposal.developerName}</span>
+                        <DeveloperProfileLink developerId={proposal.developerId} name={proposal.developerName} />
                         {proposal.status !== "pending" ? (
                           <ProposalStatusBadge status={proposal.status} className="ml-2" />
                         ) : null}

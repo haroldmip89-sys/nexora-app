@@ -359,12 +359,13 @@ describe("client reads", () => {
     expect(page.total).toBe(1);
     expect(page.items[0].developerName).toBe(dev.displayName);
     expect(Object.keys(page.items[0]).sort()).toEqual(
-      ["createdAt", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
+      ["createdAt", "developerId", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
     );
     const serialized = JSON.stringify(page);
     expect(serialized).not.toContain(dev.email);
     expect(serialized).not.toContain(dev.clerkUserId);
-    expect(serialized).not.toContain(dev.id);
+    // The developer id is exposed on purpose (public profile link); nothing else about the user.
+    expect(page.items[0].developerId).toBe(dev.id);
     expect(serialized).not.toContain(client.id);
   });
 
@@ -438,7 +439,7 @@ describe("client reads", () => {
 
     const detail = await service.getProjectProposal(client, project.id, p.id);
     expect(Object.keys(detail).sort()).toEqual(
-      ["createdAt", "description", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
+      ["createdAt", "description", "developerId", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
     );
     expect(detail.developerName).toBe(dev.displayName);
 

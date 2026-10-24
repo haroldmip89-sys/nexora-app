@@ -421,6 +421,8 @@ Todo es de prueba: ninguna transferencia mueve dinero real y la UI lo indica con
 8. [ ] **Privacidad y logs:** el HTML de la página de pago y de `/dashboard/payouts` no contiene `acct_...`, `tr_...`, `pi_...` ni URLs de Stripe; el log del servidor solo trae `transferId`, `status`, `reason` y los campos saneados de `stripeErrorLogFields` (nunca `acct_`, `tr_`, importes, correos ni el objeto de Stripe). La fila guarda códigos propios en `last_error_code`, no el mensaje de Stripe.
 9. [ ] **Responsive y accesibilidad** a 390 px: sin scroll horizontal, "Reintentar transferencia" operable con teclado, foco visible, objetivo táctil de 44 px, resultado anunciado en una región `aria-live` y el estado no depende solo del color.
 
+- [ ] **Perfil del desarrollador visible para el cliente (mejora de 007/009/012/013):** como cliente, el nombre del desarrollador es un enlace (se abre en pestaña nueva) a `/developers/<id>` en: la tabla y el detalle de `/projects/<id>/proposals` (antes de elegir), `/projects/<id>/payment` y las filas "En contratación" de `/dashboard` (durante el proyecto). El perfil muestra bio en Markdown, titular, enlaces y valoraciones, sin correo salvo que el desarrollador lo haya hecho visible para clientes aceptados. El HTML de esas páginas contiene el id del desarrollador solo dentro de ese enlace.
+
 ## 8g. Spec 012 — Dashboard del cliente y cancelación de pago
 
 Todo es de prueba: el bloque de pagos lleva "Modo de prueba · No se mueve dinero real". Cuentas: Cliente C (proyecto en `proposal_selected` con Desarrollador A), Desarrollador, Administrador y otro Cliente D. Para (b) hace falta **no** tener `stripe listen` activo.

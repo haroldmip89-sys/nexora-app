@@ -18,7 +18,8 @@ export type DashboardProjectPayment = {
   projectId: string;
   title: string;
   status: "proposal_selected" | "contracted";
-  /** users.display_name of the winner (already visible to the client); no email nor id. */
+  /** Winner id (only builds the public profile link) and users.display_name; no email. */
+  developerId: string;
   developerName: string;
   /** From the accepted proposal. */
   amountCents: number;

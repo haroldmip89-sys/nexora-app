@@ -149,6 +149,7 @@ export async function getClientDashboard(actor: AuthUser): Promise<ClientDashboa
       projectId: row.projectId,
       title: row.title,
       status: row.status as DashboardProjectPayment["status"],
+      developerId: row.developerId,
       developerName: row.developerName,
       amountCents: row.amountCents,
       payment: attempt ? { status: attempt.status, updatedAt: attempt.updatedAt } : null,

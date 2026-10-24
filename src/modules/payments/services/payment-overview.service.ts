@@ -94,6 +94,7 @@ export async function getProjectPaymentOverview(
   return {
     project: { id: project.id, title: project.title, status: project.status },
     proposal: {
+      developerId: winner.developerId,
       developerName: winner.developerName,
       priceCents: winner.priceCents,
       currency: "USD",

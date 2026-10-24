@@ -40,9 +40,10 @@ export type DeveloperProposalListItem = Omit<DeveloperProposal, "description"> &
   projectStatus: ProjectStatus;
 };
 
-/** What the owner client sees: never contact, ids of users or profile data. */
+/** What the owner client sees: never contact or profile data. `developerId` only builds the public profile link. */
 export type ClientProposalSummary = {
   id: string;
+  developerId: string;
   developerName: string;
   priceCents: number;
   timelineWeeks: number;

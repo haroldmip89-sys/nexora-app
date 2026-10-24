@@ -1,3 +1,4 @@
+import { DeveloperProfileLink } from "@/components/shared/developer-profile-link";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 import { formatUsd } from "@/lib/money";
 import type { ProjectStatus } from "@/modules/projects/types/project.types";
@@ -28,7 +29,7 @@ export function ClientProposalDetail({ proposal, projectId, projectStatus }: Pro
         <div className="mt-3 flex flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="min-w-0 break-words text-lg font-semibold text-[#202522]">
-              {proposal.developerName}
+              <DeveloperProfileLink developerId={proposal.developerId} name={proposal.developerName} />
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {proposal.updatedAt > proposal.createdAt ? (

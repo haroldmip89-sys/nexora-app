@@ -352,7 +352,7 @@ describe("getClientDashboard", () => {
     }
     const [row] = data.contracting;
     expect(Object.keys(row).sort()).toEqual(
-      ["amountCents", "developerName", "developerPayoutsReady", "payment", "projectId", "rated", "status", "title", "transfer"],
+      ["amountCents", "developerId", "developerName", "developerPayoutsReady", "payment", "projectId", "rated", "status", "title", "transfer"],
     );
     expect(Object.keys(row.payment!).sort()).toEqual(["status", "updatedAt"]);
     expect(Object.keys(row.transfer!).sort()).toEqual(["completedAt", "status"]);

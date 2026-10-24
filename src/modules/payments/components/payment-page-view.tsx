@@ -1,3 +1,4 @@
+import { DeveloperProfileLink } from "@/components/shared/developer-profile-link";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatUsd } from "@/lib/money";
@@ -162,7 +163,9 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
           </div>
           <div className="min-w-0">
             <dt className="text-xs text-[#535E56]">Desarrollador seleccionado</dt>
-            <dd className="break-words text-[#202522]">{proposal.developerName}</dd>
+            <dd className="break-words text-[#202522]">
+              <DeveloperProfileLink developerId={proposal.developerId} name={proposal.developerName} />
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-[#535E56]">Importe</dt>

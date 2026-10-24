@@ -1,3 +1,4 @@
+import { DeveloperProfileLink } from "@/components/shared/developer-profile-link";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatUsd } from "@/lib/money";
@@ -33,7 +34,9 @@ function ContractingRow({ item }: { item: DashboardProjectPayment }) {
       <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
         <div className="min-w-0">
           <dt className="text-xs text-[#535E56]">Desarrollador</dt>
-          <dd className="break-words text-[#202522]">{item.developerName}</dd>
+          <dd className="break-words text-[#202522]">
+            <DeveloperProfileLink developerId={item.developerId} name={item.developerName} />
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-[#535E56]">Importe</dt>
