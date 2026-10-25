@@ -45,6 +45,7 @@ export type ClientProposalSummary = {
   id: string;
   developerId: string;
   developerName: string;
+  imageUrl: string | null;
   priceCents: number;
   timelineWeeks: number;
   status: ProposalStatus;

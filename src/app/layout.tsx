@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { LiveAnnouncer } from "@/components/shared/live-announcer";
+import { HideOnAuthRoutes } from "@/components/shared/hide-on-auth-routes";
 import { SiteFooter } from "@/components/shared/site-footer";
 import { SiteHeader, SiteHeaderFallback } from "@/modules/auth/components/site-header";
 import "./globals.css";
@@ -35,7 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <SiteHeader />
           </Suspense>
           {children}
-          <SiteFooter />
+          <HideOnAuthRoutes>
+            <SiteFooter />
+          </HideOnAuthRoutes>
           <LiveAnnouncer />
         </body>
       </html>

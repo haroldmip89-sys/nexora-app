@@ -30,6 +30,7 @@ export async function completeOnboarding(input: unknown): Promise<CompleteOnboar
       role: parsed.data.role,
       displayName: profile.displayName,
       email: profile.email,
+      imageUrl: profile.imageUrl,
     });
   } catch {
     return { error: "No pudimos completar tu registro. Inténtalo de nuevo." };

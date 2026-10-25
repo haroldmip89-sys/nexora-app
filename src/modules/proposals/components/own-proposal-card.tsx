@@ -23,22 +23,22 @@ export function OwnProposalCard({ proposal }: { proposal: DeveloperProposal }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium text-[#202522]">Tu propuesta</span>
+        <span className="text-sm font-medium text-foreground">Tu propuesta</span>
         <ProposalStatusBadge status={proposal.status} />
       </div>
 
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="text-xs text-[#535E56]">Precio</dt>
-          <dd className="font-semibold text-[#202522]">{formatUsd(proposal.priceCents)}</dd>
+          <dt className="text-xs text-muted-foreground">Precio</dt>
+          <dd className="font-semibold text-foreground">{formatUsd(proposal.priceCents)}</dd>
         </div>
         <div>
-          <dt className="text-xs text-[#535E56]">Plazo</dt>
-          <dd className="text-[#202522]">{proposal.timelineWeeks} semanas</dd>
+          <dt className="text-xs text-muted-foreground">Plazo</dt>
+          <dd className="text-foreground">{proposal.timelineWeeks} semanas</dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-xs text-[#535E56]">Enviada</dt>
-          <dd className="text-[#202522]">{dateFormatter.format(proposal.createdAt)}</dd>
+          <dt className="text-xs text-muted-foreground">Enviada</dt>
+          <dd className="text-foreground">{dateFormatter.format(proposal.createdAt)}</dd>
         </div>
       </dl>
 
@@ -53,16 +53,16 @@ export function OwnProposalCard({ proposal }: { proposal: DeveloperProposal }) {
             type="button"
             variant="outline"
             onClick={() => setEditing(true)}
-            className="h-10 rounded-[10px] px-4"
+            className="h-11 rounded-[10px] px-4"
           >
             Editar
           </Button>
-          <WithdrawProposalButton proposalId={proposal.id} className="h-10 rounded-[10px] px-4" />
+          <WithdrawProposalButton proposalId={proposal.id} className="h-11 rounded-[10px] px-4" />
         </div>
       ) : null}
 
       {proposal.status === "withdrawn" ? (
-        <p className="text-sm text-[#535E56]">
+        <p className="text-sm text-muted-foreground">
           Retiraste esta propuesta. No es posible enviar otra a este proyecto.
         </p>
       ) : null}

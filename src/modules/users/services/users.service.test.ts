@@ -63,6 +63,69 @@ describe("registerUser", () => {
   });
 });
 
+const IMG = "https://img.clerk.com/abc123";
+
+describe("registerUser image_url", () => {
+  it("stores the image for developers", async () => {
+    const row = await service.registerUser(input({ role: "developer", imageUrl: IMG }));
+    expect(row.imageUrl).toBe(IMG);
+  });
+
+  it("does not store the image for clients", async () => {
+    const row = await service.registerUser(input({ role: "client", imageUrl: IMG }));
+    expect(row.imageUrl).toBeNull();
+  });
+
+  it("is idempotent: a second register changes neither role nor image", async () => {
+    const i = input({ role: "developer", imageUrl: IMG });
+    await service.registerUser(i);
+    const b = await service.registerUser({
+      ...i,
+      role: "client",
+      imageUrl: "https://img.clerk.com/other",
+    });
+    expect(b.role).toBe("developer");
+    expect(b.imageUrl).toBe(IMG);
+  });
+});
+
+describe("syncImageUrl", () => {
+  it("stores, updates and clears the image of a developer without changing role", async () => {
+    const row = await service.registerUser(input({ role: "developer" }));
+    await service.syncImageUrl(row.clerkUserId, IMG);
+    expect((await service.findByClerkUserId(row.clerkUserId))?.imageUrl).toBe(IMG);
+    await service.syncImageUrl(row.clerkUserId, "https://img.clerk.com/new");
+    expect((await service.findByClerkUserId(row.clerkUserId))?.imageUrl).toBe(
+      "https://img.clerk.com/new",
+    );
+    await service.syncImageUrl(row.clerkUserId, null);
+    const after = await service.findByClerkUserId(row.clerkUserId);
+    expect(after?.imageUrl).toBeNull();
+    expect(after?.role).toBe("developer");
+  });
+
+  it("does not create rows when missing", async () => {
+    const id = nextId();
+    await service.syncImageUrl(id, IMG);
+    expect(await service.findByClerkUserId(id)).toBeNull();
+  });
+
+  it("is a no-op for anonymized accounts", async () => {
+    const row = await service.registerUser(input({ role: "developer" }));
+    await service.anonymizeByClerkUserId(row.clerkUserId);
+    await service.syncImageUrl(row.clerkUserId, IMG);
+    expect((await service.findByClerkUserId(row.clerkUserId))?.imageUrl).toBeNull();
+  });
+
+  it("is a no-op for clients", async () => {
+    const row = await service.registerUser(input({ role: "client" }));
+    await service.syncImageUrl(row.clerkUserId, IMG);
+    const after = await service.findByClerkUserId(row.clerkUserId);
+    expect(after?.imageUrl).toBeNull();
+    expect(after?.role).toBe("client");
+  });
+});
+
 describe("findByClerkUserId", () => {
   it("returns null when missing", async () => {
     expect(await service.findByClerkUserId("nope")).toBeNull();
@@ -123,6 +186,13 @@ describe("anonymizeByClerkUserId", () => {
     });
   });
 
+  it("clears image_url and is idempotent", async () => {
+    const row = await service.registerUser(input({ role: "developer", imageUrl: IMG }));
+    await service.anonymizeByClerkUserId(row.clerkUserId);
+    await service.anonymizeByClerkUserId(row.clerkUserId);
+    expect((await service.findByClerkUserId(row.clerkUserId))?.imageUrl).toBeNull();
+  });
+
   it("is a no-op when the row is missing", async () => {
     await expect(service.anonymizeByClerkUserId(nextId())).resolves.toBeUndefined();
   });
@@ -134,7 +204,7 @@ describe("module surface", () => {
       .filter(([, value]) => typeof value === "function")
       .map(([key]) => key);
     expect(functions.sort()).toEqual(
-      ["anonymizeByClerkUserId", "findByClerkUserId", "registerUser", "syncProfile"].sort(),
+      ["anonymizeByClerkUserId", "findByClerkUserId", "registerUser", "syncImageUrl", "syncProfile"].sort(),
     );
   });
 });

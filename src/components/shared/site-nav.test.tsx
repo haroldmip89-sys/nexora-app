@@ -54,10 +54,10 @@ describe("SiteNav", () => {
       expect(currentLinks()).toEqual(expected);
     });
 
-    it("marks Registrarse on /sign-up", () => {
-      pathnameMock.value = "/sign-up";
+    it("does not treat /sign-up-free as an auth path (no current link)", () => {
+      pathnameMock.value = "/sign-up-free";
       render(<SiteNav links={[PROJECTS]} signedIn={false} />);
-      expect(currentLinks()).toEqual(["Registrarse"]);
+      expect(currentLinks()).toEqual([]);
     });
   });
 
@@ -161,6 +161,87 @@ describe("SiteNav", () => {
         />,
       );
       expect(currentLinks()).toEqual(["Mi panel"]);
+    });
+  });
+
+  describe("home anchors and CTA (022b)", () => {
+    const ANCHORS = [
+      { href: "/#proyectos", label: "Explorar proyectos" },
+      { href: "/#como-funciona", label: "Cómo funciona" },
+    ];
+    const link = (name: string) => screen.queryAllByRole("link", { name, hidden: true });
+
+    it("on / shows the anchors instead of Proyectos, without aria-current", () => {
+      render(<SiteNav links={[PROJECTS]} signedIn={false} homeAnchors={ANCHORS} />);
+      expect(link("Explorar proyectos")[0]).toHaveAttribute("href", "/#proyectos");
+      expect(link("Cómo funciona")).toHaveLength(1);
+      expect(link("Proyectos")).toHaveLength(0);
+      expect(currentLinks()).toEqual(["Nexora"]);
+    });
+
+    it("on another route ignores anchors and CTA", () => {
+      pathnameMock.value = "/projects";
+      render(<SiteNav links={[PROJECTS]} signedIn={false} homeAnchors={ANCHORS} homeCta={{ kind: "visitor" }} />);
+      expect(link("Cómo funciona")).toHaveLength(0);
+      expect(link("Proyectos")).toHaveLength(1);
+      expect(link("Publicar proyecto")).toHaveLength(0);
+      expect(link("Registrarse")).toHaveLength(1);
+    });
+
+    it("without the new props behaves as before on /", () => {
+      render(<SiteNav links={[PROJECTS]} signedIn={false} />);
+      expect(link("Proyectos")).toHaveLength(1);
+      expect(link("Registrarse")).toHaveLength(1);
+    });
+
+    it("visitor on / sees Publicar proyecto (sign-up) instead of Registrarse", () => {
+      render(<SiteNav links={[PROJECTS]} signedIn={false} homeAnchors={ANCHORS} homeCta={{ kind: "visitor" }} />);
+      expect(link("Publicar proyecto").length).toBeGreaterThan(0);
+      for (const el of link("Publicar proyecto")) expect(el).toHaveAttribute("href", "/sign-up");
+      expect(link("Registrarse")).toHaveLength(0);
+      expect(link("Iniciar sesión")).toHaveLength(1);
+    });
+
+    it("member on / sees its CTA next to the UserButton", () => {
+      render(
+        <SiteNav
+          links={[PROJECTS]}
+          signedIn
+          homeAnchors={ANCHORS}
+          homeCta={{ kind: "member", label: "Ir a mi panel", href: "/dashboard" }}
+        />,
+      );
+      expect(screen.getByTestId("user-button")).toBeInTheDocument();
+      for (const el of link("Ir a mi panel")) expect(el).toHaveAttribute("href", "/dashboard");
+      expect(link("Ir a mi panel").length).toBeGreaterThan(0);
+    });
+
+    it("none on / renders no extra CTA", () => {
+      render(<SiteNav links={[PROJECTS]} signedIn homeAnchors={ANCHORS} homeCta={{ kind: "none" }} />);
+      expect(link("Publicar proyecto")).toHaveLength(0);
+      expect(link("Ir a mi panel")).toHaveLength(0);
+    });
+
+    it("closes the mobile menu when an anchor is clicked", async () => {
+      const user = userEvent.setup();
+      render(<SiteNav links={[PROJECTS]} signedIn homeAnchors={ANCHORS} />);
+      const toggle = screen.getByRole("button", { name: /menú/i });
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await user.click(link("Cómo funciona")[0]);
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+  describe("sign-in and sign-up", () => {
+    it.each(["/sign-in", "/sign-up"])("on %s shows only the logo and the test-mode chip", (path) => {
+      pathnameMock.value = path;
+      render(<SiteNav links={[PROJECTS]} signedIn={false} />);
+      expect(screen.getByRole("link", { name: "Nexora" })).toHaveAttribute("href", "/");
+      expect(screen.getByText("Modo de prueba")).toBeInTheDocument();
+      expect(screen.queryByRole("navigation")).toBeNull();
+      expect(screen.queryByRole("link", { name: "Registrarse" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Proyectos" })).toBeNull();
+      expect(screen.queryByRole("button")).toBeNull();
     });
   });
 });

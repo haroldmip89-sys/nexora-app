@@ -26,12 +26,12 @@ export function FormField({ name, label, hint, error, children }: FormFieldProps
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={id} className="text-sm font-medium text-[#202522]">
+      <Label htmlFor={id} className="text-sm font-medium text-foreground">
         {label}
       </Label>
       {children({ id, describedBy, invalid: Boolean(error) })}
       {hint ? (
-        <p id={hintId} className="text-xs text-[#535E56]">
+        <p id={hintId} className="text-xs text-muted-foreground">
           {hint}
         </p>
       ) : null}

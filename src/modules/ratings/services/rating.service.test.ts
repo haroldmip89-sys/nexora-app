@@ -240,11 +240,19 @@ describe("getProjectRatingView", () => {
     expect(view).toEqual({
       project: { id: seed.projectId, title: "Landing page" },
       developerName: "Dana Developer",
+      developerImageUrl: null,
       previewName: "Maria G.",
       rating: null,
       canCreate: true,
     });
-    expect(Object.keys(view).sort()).toEqual(["canCreate", "developerName", "previewName", "project", "rating"]);
+    expect(Object.keys(view).sort()).toEqual([
+      "canCreate",
+      "developerImageUrl",
+      "developerName",
+      "previewName",
+      "project",
+      "rating",
+    ]);
   });
 
   it("recent, edge and expired ratings", async () => {

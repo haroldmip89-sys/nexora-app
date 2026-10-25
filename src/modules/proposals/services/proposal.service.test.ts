@@ -359,7 +359,7 @@ describe("client reads", () => {
     expect(page.total).toBe(1);
     expect(page.items[0].developerName).toBe(dev.displayName);
     expect(Object.keys(page.items[0]).sort()).toEqual(
-      ["createdAt", "developerId", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
+      ["createdAt", "developerId", "developerName", "id", "imageUrl", "priceCents", "status", "timelineWeeks", "updatedAt"],
     );
     const serialized = JSON.stringify(page);
     expect(serialized).not.toContain(dev.email);
@@ -439,7 +439,7 @@ describe("client reads", () => {
 
     const detail = await service.getProjectProposal(client, project.id, p.id);
     expect(Object.keys(detail).sort()).toEqual(
-      ["createdAt", "description", "developerId", "developerName", "id", "priceCents", "status", "timelineWeeks", "updatedAt"],
+      ["createdAt", "description", "developerId", "developerName", "id", "imageUrl", "priceCents", "status", "timelineWeeks", "updatedAt"],
     );
     expect(detail.developerName).toBe(dev.displayName);
 

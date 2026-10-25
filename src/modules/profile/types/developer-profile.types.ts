@@ -38,6 +38,7 @@ export const CONTACT_VISIBILITY_LABELS: Record<ContactVisibility, string> = {
 /** Form/DB shape owned by the developer (editor). Never includes users.email. */
 export type OwnDeveloperProfile = {
   displayName: string; // read-only, from users
+  imageUrl: string | null; // read-only copy of the Clerk photo URL (023)
   headline: string;
   location: string;
   availability: DeveloperAvailability;
@@ -53,6 +54,7 @@ export type PublicDeveloperProfile = {
   userId: string;
   displayName: string;
   initials: string;
+  imageUrl: string | null; // null when absent or anonymized (023)
   hasProfile: boolean;
   headline: string | null;
   location: string | null;

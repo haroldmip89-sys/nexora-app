@@ -8,8 +8,10 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { buttonVariants } from "@/components/ui/button";
 import { getActiveHref, isActivePath } from "@/lib/is-active-path";
+import { isAuthPath } from "@/lib/is-auth-path";
 import { cn } from "@/lib/utils";
 import type { NavLinkItem } from "@/modules/auth/services/dashboard-link";
+import type { HomeCta } from "@/modules/auth/services/home-cta";
 
 const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 const NAV_LINK = "inline-flex min-h-11 items-center rounded-lg px-3 text-sm";
@@ -20,11 +22,16 @@ type SiteNavProps = {
   links: NavLinkItem[];
   /** true: shows the Clerk user button; false: sign-in / sign-up actions. */
   signedIn: boolean;
+  /** In-page anchors; used only on "/" (replace the "Proyectos" link). */
+  homeAnchors?: NavLinkItem[];
+  /** Account CTA; used only on "/". */
+  homeCta?: HomeCta;
 };
 
 const subscribeNoop = () => () => {};
+const PROJECTS_HREF = "/projects";
 
-export function SiteNav({ links, signedIn }: SiteNavProps) {
+export function SiteNav({ links, signedIn, homeAnchors, homeCta }: SiteNavProps) {
   const pathname = usePathname();
   // Clerk's UserButton renders nothing on the server but can render at once on a client that already
   // has Clerk loaded, which breaks hydration. Mount it only after hydration, behind a same-size placeholder.
@@ -34,9 +41,20 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
   const open = openedAt === pathname;
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const items = signedIn ? links : [...links, { href: "/sign-in", label: "Iniciar sesión" }];
+  const isHome = pathname === "/";
+  const anchors = isHome && homeAnchors ? homeAnchors : [];
+  const cta = isHome ? homeCta : undefined;
+  const baseLinks = anchors.length > 0 ? links.filter((link) => link.href !== PROJECTS_HREF) : links;
+  const items = signedIn ? baseLinks : [...baseLinks, { href: "/sign-in", label: "Iniciar sesión" }];
   const activeHref = getActiveHref(pathname, items.map((item) => item.href));
   const close = () => setOpenedAt(null);
+  // Home CTA: visitor -> "Publicar proyecto" (sign-up); member -> its own label/href; none -> nothing.
+  const homeButton =
+    cta?.kind === "visitor"
+      ? { label: "Publicar proyecto", href: "/sign-up" }
+      : cta?.kind === "member"
+        ? { label: cta.label, href: cta.href }
+        : null;
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape" && open) {
@@ -45,8 +63,25 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
     }
   }
 
+  // Sign-in and sign-up: bare header (logo and test-mode chip), no links or buttons.
+  if (isAuthPath(pathname)) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-border bg-card">
+        <div className="mx-auto flex w-full max-w-page items-center justify-between gap-2 px-3 py-2 sm:px-6">
+          <Link href="/" className={cn("inline-flex min-h-11 items-center gap-2 rounded-lg px-1 text-foreground", FOCUS)}>
+            <Image src="/logo.png" alt="" width={30} height={30} className="size-[30px] shrink-0" />
+            <span className="text-[22px] font-extrabold tracking-[-0.03em] lowercase">Nexora</span>
+          </Link>
+          <span className="inline-flex items-center whitespace-nowrap rounded-full border border-warning-border bg-warning-bg px-2.5 py-1 text-xs font-bold text-warning-fg">
+            Modo de prueba
+          </span>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className="relative border-b border-border bg-card" onKeyDown={handleKeyDown}>
+    <header className="sticky top-0 z-40 border-b border-border bg-card" onKeyDown={handleKeyDown}>
       <div className="mx-auto flex w-full max-w-page items-center gap-1 px-3 py-2 sm:gap-2 sm:px-6">
         <Link
           href="/"
@@ -90,6 +125,24 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
                 </li>
               );
             })}
+            {anchors.map((anchor) => (
+              <li key={anchor.href}>
+                <Link
+                  href={anchor.href}
+                  onClick={close}
+                  className={cn(NAV_LINK, FOCUS, "font-semibold text-muted-foreground hover:text-primary")}
+                >
+                  {anchor.label}
+                </Link>
+              </li>
+            ))}
+            {homeButton ? (
+              <li className="py-1 sm:hidden">
+                <Link href={homeButton.href} onClick={close} className={cn(buttonVariants({ size: "touch" }), "w-full", FOCUS)}>
+                  {homeButton.label}
+                </Link>
+              </li>
+            ) : null}
           </ul>
         </nav>
 
@@ -97,13 +150,21 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
           <span className="inline-flex items-center whitespace-nowrap rounded-full border border-warning-border bg-warning-bg px-2 py-1 text-[11px] font-bold text-warning-fg sm:px-2.5 sm:text-xs">
             Modo de prueba
           </span>
+          {homeButton ? (
+            <Link
+              href={homeButton.href}
+              className={cn(buttonVariants({ size: "touch" }), "hidden px-4 sm:inline-flex", FOCUS)}
+            >
+              {homeButton.label}
+            </Link>
+          ) : null}
           {signedIn ? (
             hydrated ? (
               <UserButton appearance={{ elements: { userButtonTrigger: "min-h-11 min-w-11 justify-center" } }} />
             ) : (
               <span aria-hidden="true" className="inline-block size-11" />
             )
-          ) : (
+          ) : cta?.kind === "visitor" ? null : (
             <Link
               href="/sign-up"
               aria-current={isActivePath(pathname, "/sign-up") ? "page" : undefined}

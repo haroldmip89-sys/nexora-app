@@ -2,7 +2,17 @@ import { DeveloperProfileLink } from "@/components/shared/developer-profile-link
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationNav } from "@/components/shared/pagination-nav";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { buttonVariants } from "@/components/ui/button";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ProjectStatusBadge } from "@/modules/projects/components/project-status-badge";
@@ -15,7 +25,7 @@ import type {
   ProjectProposalsQuery,
 } from "@/modules/proposals/types/proposal.types";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 const dateFormatter = new Intl.DateTimeFormat("es", { dateStyle: "medium" });
 
 const SORT_OPTIONS: { value: ProjectProposalsQuery["sort"]; label: string }[] = [
@@ -53,11 +63,11 @@ function Chip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-8 items-center rounded-full border px-3 text-sm transition-colors",
+        "inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-medium transition-colors",
         FOCUS,
         active
-          ? "border-[#183D30] bg-[#183D30] font-medium text-white"
-          : "border-[#E3E8E3] bg-white text-[#535E56] hover:border-[#183D30]/50",
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {children}
@@ -77,20 +87,35 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
   const selectedId = detail?.id ?? null;
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-      <Link
-        href="/dashboard/projects"
-        className={cn("text-sm font-medium text-[#183D30] underline", FOCUS)}
-      >
-        Volver a mis proyectos
-      </Link>
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6">
+      <Breadcrumb aria-label="Ruta">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/dashboard" className={cn("rounded-sm", FOCUS)} />}>
+              Mi panel
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink
+              render={<Link href={`/projects/${project.id}`} className={cn("rounded-sm", FOCUS)} />}
+            >
+              {project.title}
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Propuestas</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-[#535E56]">Propuestas recibidas</p>
-          <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight text-[#202522]">
-            {project.title}
+          <h1 className="min-w-0 break-words text-3xl font-extrabold tracking-tight text-foreground">
+            Propuestas recibidas
           </h1>
+          <p className="mt-1 break-words text-sm text-muted-foreground">{project.title}</p>
         </div>
         <ProjectStatusBadge status={project.status} />
       </div>
@@ -98,7 +123,7 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
       {project.status === "proposal_selected" ? (
         <div
           role="status"
-          className="mt-4 rounded-[14px] border border-[#DCE6DE] bg-[#F5F6F2] p-4 text-sm text-[#202522]"
+          className="mt-4 rounded-[14px] border border-border bg-surface-soft p-4 text-sm text-foreground"
         >
           <p>
             Elegiste una propuesta. Este proyecto ya no admite nuevas propuestas y las demás
@@ -107,8 +132,8 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
           <Link
             href={`/projects/${project.id}/payment`}
             className={cn(
-              buttonVariants(),
-              "mt-3 h-10 bg-[#183D30] px-4 text-white hover:bg-[#183D30]/90",
+              buttonVariants({ size: "touch" }),
+              "mt-3",
               FOCUS,
             )}
           >
@@ -125,24 +150,27 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
               action={
                 <Link
                   href={buildHref(project.id, query, { page: 1, proposal: undefined })}
-                  className={cn("text-sm font-medium text-[#183D30] underline", FOCUS)}
+                  className={cn("text-sm font-medium text-primary underline", FOCUS)}
                 >
                   Volver al inicio de la lista
                 </Link>
               }
-              className="border-[#E3E8E3] bg-white"
+              className="border-border bg-card"
             />
           ) : (
             <EmptyState
               title="Aún no hay propuestas"
               description="Cuando un desarrollador envíe una propuesta, la verás aquí."
-              className="border-[#E3E8E3] bg-white"
+              className="border-border bg-card"
             />
           )}
         </div>
       ) : (
         <>
-          <nav aria-label="Ordenar" className="mt-5 flex flex-wrap gap-2">
+          <nav
+            aria-label="Ordenar"
+            className="mt-5 inline-flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1"
+          >
             {SORT_OPTIONS.map((option) => (
               <Chip
                 key={option.value}
@@ -159,63 +187,75 @@ export function ProjectProposalsView({ project, data, query, detail }: Props) {
               role="region"
               aria-label="Tabla comparativa de propuestas"
               tabIndex={0}
-              className={cn(
-                "min-w-0 overflow-x-auto rounded-[14px] border border-[#E3E8E3] bg-white",
-                FOCUS,
-              )}
+              className={cn("surface min-w-0 overflow-x-auto", FOCUS)}
             >
-              <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
-                <caption className="px-4 py-3 text-left text-sm text-[#535E56]">
+              <table className="w-full min-w-[34rem] caption-top text-left text-sm">
+                <caption className="px-4 py-3 text-left text-sm text-muted-foreground">
                   Propuestas recibidas para este proyecto
                 </caption>
-                <thead>
-                  <tr className="border-y border-[#E3E8E3] bg-[#F5F6F2] text-xs text-[#535E56]">
-                    <th scope="col" className="px-4 py-2 font-medium">Desarrollador</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Precio</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Plazo</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Enviada</th>
-                    <th scope="col" className="px-4 py-2 font-medium">
+                <TableHeader>
+                  <TableRow className="border-y border-border bg-surface-subtle text-xs text-muted-foreground hover:bg-surface-subtle">
+                    <TableHead scope="col" className="px-4 text-muted-foreground">Desarrollador</TableHead>
+                    <TableHead scope="col" className="px-4 text-right text-muted-foreground">Precio</TableHead>
+                    <TableHead scope="col" className="px-4 text-muted-foreground">Plazo</TableHead>
+                    <TableHead scope="col" className="px-4 text-muted-foreground">Enviada</TableHead>
+                    <TableHead scope="col" className="px-4">
                       <span className="sr-only">Acciones</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((proposal) => (
-                    <tr
-                      key={proposal.id}
-                      className={cn(
-                        "border-b border-[#E3E8E3] last:border-b-0",
-                        proposal.id === selectedId && "bg-[#F5F6F2]",
-                      )}
-                    >
-                      <th scope="row" className="px-4 py-3 font-medium text-[#202522]">
-                        <DeveloperProfileLink developerId={proposal.developerId} name={proposal.developerName} />
-                        {proposal.status !== "pending" ? (
-                          <ProposalStatusBadge status={proposal.status} className="ml-2" />
-                        ) : null}
-                      </th>
-                      <td className="whitespace-nowrap px-4 py-3 text-[#202522]">
-                        {formatUsd(proposal.priceCents)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[#202522]">
-                        {proposal.timelineWeeks} semanas
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[#202522]">
-                        {dateFormatter.format(proposal.createdAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <Link
-                          href={buildHref(project.id, query, { proposal: proposal.id })}
-                          aria-current={proposal.id === selectedId ? "true" : undefined}
-                          className={cn("font-medium text-[#183D30] underline", FOCUS)}
-                        >
-                          Ver detalle
-                          <span className="sr-only"> de {proposal.developerName}</span>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((proposal) => {
+                    const selected = proposal.id === selectedId;
+                    return (
+                      <TableRow
+                        key={proposal.id}
+                        className={cn(
+                          "border-border",
+                          selected && "bg-surface-soft shadow-[inset_3px_0_0_var(--primary)]",
+                        )}
+                      >
+                        <TableHead scope="row" className="h-auto whitespace-normal px-4 py-3 text-foreground">
+                          <span className="flex items-center gap-2.5">
+                            <UserAvatar name={proposal.developerName} imageUrl={proposal.imageUrl} size="sm" />
+                            <span className="min-w-0">
+                              <DeveloperProfileLink
+                                developerId={proposal.developerId}
+                                name={proposal.developerName}
+                              />
+                              {proposal.status !== "pending" ? (
+                                <ProposalStatusBadge status={proposal.status} className="ml-2" />
+                              ) : null}
+                            </span>
+                          </span>
+                        </TableHead>
+                        <TableCell className="px-4 py-3 text-right text-[15px] font-extrabold text-foreground">
+                          {formatUsd(proposal.priceCents)}
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-foreground">
+                          {proposal.timelineWeeks} semanas
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-foreground">
+                          {dateFormatter.format(proposal.createdAt)}
+                        </TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Link
+                            href={buildHref(project.id, query, { proposal: proposal.id })}
+                            aria-current={selected ? "true" : undefined}
+                            className={cn(
+                              buttonVariants({ variant: selected ? "default" : "outline" }),
+                              "h-10 px-3 font-medium",
+                              FOCUS,
+                            )}
+                          >
+                            {selected ? "Viendo" : "Ver detalle"}
+                            <span className="sr-only"> de {proposal.developerName}</span>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
               </table>
             </div>
 

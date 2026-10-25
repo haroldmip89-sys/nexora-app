@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  Bold,
+  Code,
+  Heading,
+  Italic,
+  Link as LinkIcon,
+  List,
+  ListChecks,
+  Table,
+} from "lucide-react";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -19,19 +29,23 @@ type Props = {
 
 type Tab = "write" | "preview";
 
-const TOOLBAR: { format: MarkdownFormat; label: string; text: string }[] = [
-  { format: "heading", label: "Título", text: "H" },
-  { format: "bold", label: "Negrita", text: "B" },
-  { format: "italic", label: "Cursiva", text: "I" },
-  { format: "list", label: "Lista", text: "•" },
-  { format: "task-list", label: "Lista de tareas", text: "☑" },
-  { format: "link", label: "Enlace", text: "🔗" },
-  { format: "code", label: "Código", text: "</>" },
-  { format: "table", label: "Tabla", text: "▦" },
+const TOOLBAR: {
+  format: MarkdownFormat;
+  label: string;
+  Icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}[] = [
+  { format: "heading", label: "Título", Icon: Heading },
+  { format: "bold", label: "Negrita", Icon: Bold },
+  { format: "italic", label: "Cursiva", Icon: Italic },
+  { format: "list", label: "Lista", Icon: List },
+  { format: "task-list", label: "Lista de tareas", Icon: ListChecks },
+  { format: "link", label: "Enlace", Icon: LinkIcon },
+  { format: "code", label: "Código", Icon: Code },
+  { format: "table", label: "Tabla", Icon: Table },
 ];
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
-const TAB_BASE = `inline-flex min-h-11 items-center justify-center rounded-[10px] px-4 text-sm font-medium ${FOCUS}`;
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const TAB_BASE = `inline-flex min-h-10 items-center justify-center rounded-lg border px-3.5 text-sm ${FOCUS}`;
 
 export function MarkdownEditor({
   id,
@@ -64,117 +78,106 @@ export function MarkdownEditor({
   }
 
   const writing = tab === "write";
+  const tabClass = (active: boolean) =>
+    cn(
+      TAB_BASE,
+      active
+        ? "border-border bg-card font-semibold text-foreground"
+        : "border-transparent font-medium text-muted-foreground hover:bg-muted",
+    );
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1" role="group" aria-label="Modo del editor">
-          <button
-            type="button"
-            aria-pressed={writing}
-            onClick={() => setTab("write")}
-            className={cn(
-              TAB_BASE,
-              writing ? "bg-[#DCE6DE] text-[#183D30]" : "text-[#535E56] hover:bg-[#F0F2EC]",
-            )}
-          >
-            Escribir
-          </button>
-          <button
-            type="button"
-            aria-pressed={!writing}
-            onClick={() => setTab("preview")}
-            className={cn(
-              TAB_BASE,
-              !writing ? "bg-[#DCE6DE] text-[#183D30]" : "text-[#535E56] hover:bg-[#F0F2EC]",
-            )}
-          >
-            Vista previa
-          </button>
+      <span className="text-xs text-muted-foreground">Markdown · sin archivos ni imágenes</span>
+
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border bg-card focus-within:ring-3 focus-within:ring-ring/40",
+          invalid ? "border-destructive" : "border-input",
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-subtle px-2 py-1.5">
+          <div className="flex gap-1" role="group" aria-label="Modo del editor">
+            <button
+              type="button"
+              aria-pressed={writing}
+              onClick={() => setTab("write")}
+              className={tabClass(writing)}
+            >
+              Escribir
+            </button>
+            <button
+              type="button"
+              aria-pressed={!writing}
+              onClick={() => setTab("preview")}
+              className={tabClass(!writing)}
+            >
+              Vista previa
+            </button>
+          </div>
+
+          {writing ? (
+            <div className="flex flex-wrap gap-0.5" role="toolbar" aria-label="Formato de Markdown">
+              {TOOLBAR.map(({ format: kind, label, Icon }) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-label={label}
+                  title={label}
+                  disabled={readOnly}
+                  onClick={() => format(kind)}
+                  className={cn(
+                    "inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                    FOCUS,
+                  )}
+                >
+                  <Icon aria-hidden className="size-[18px]" />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <span className="text-xs text-[#535E56]">Markdown · sin archivos ni imágenes</span>
+
+        {/* Always mounted so FormData keeps the value while previewing. */}
+        <Textarea
+          ref={textareaRef}
+          id={id}
+          name={name}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onInvalid={() => setTab("write")}
+          required
+          minLength={minLength}
+          maxLength={maxLength}
+          rows={14}
+          readOnly={readOnly}
+          hidden={!writing}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
+          className={cn(
+            "block rounded-none border-0 bg-card p-4 font-mono text-sm leading-[1.7] text-foreground focus-visible:ring-0",
+            !writing && "hidden",
+          )}
+        />
+
+        {writing ? null : (
+          <div
+            className="min-h-40 px-5 py-4"
+            aria-label="Vista previa de la descripción"
+            role="region"
+          >
+            {value.trim() ? (
+              <MarkdownContent source={value} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Nada que previsualizar</p>
+            )}
+          </div>
+        )}
       </div>
 
-      {writing ? (
-        <div className="flex flex-wrap gap-1" role="toolbar" aria-label="Formato de Markdown">
-          {TOOLBAR.map(({ format: kind, label, text }) => (
-            <button
-              key={kind}
-              type="button"
-              aria-label={label}
-              title={label}
-              disabled={readOnly}
-              onClick={() => format(kind)}
-              className={cn(
-                "inline-flex min-h-11 min-w-11 items-center justify-center rounded-[10px] border border-[#E3E8E3] bg-white text-sm text-[#183D30] hover:bg-[#F0F2EC] disabled:cursor-not-allowed disabled:opacity-50",
-                FOCUS,
-              )}
-            >
-              <span aria-hidden="true">{text}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Always mounted so FormData keeps the value while previewing. */}
-      <Textarea
-        ref={textareaRef}
-        id={id}
-        name={name}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onInvalid={() => setTab("write")}
-        required
-        minLength={minLength}
-        maxLength={maxLength}
-        rows={10}
-        readOnly={readOnly}
-        hidden={!writing}
-        aria-invalid={invalid}
-        aria-describedby={describedBy}
-        className={cn(
-          "rounded-[10px] border-[#E3E8E3] bg-white font-mono text-[#202522]",
-          !writing && "hidden",
-        )}
-      />
-
-      {writing ? null : (
-        <div
-          className="min-h-40 rounded-[10px] border border-[#E3E8E3] bg-white p-4"
-          aria-label="Vista previa de la descripción"
-          role="region"
-        >
-          {value.trim() ? (
-            <MarkdownContent source={value} />
-          ) : (
-            <p className="text-sm text-[#535E56]">Nada que previsualizar</p>
-          )}
-        </div>
-      )}
-
-      <p className="text-xs text-[#535E56]">
+      <p className="text-right text-xs text-muted-foreground">
         {value.length} / {maxLength} caracteres
       </p>
-
-      <details className="rounded-[10px] border border-[#E3E8E3] bg-[#F0F2EC] p-3 text-sm text-[#202522]">
-        <summary
-          className={cn("flex min-h-11 cursor-pointer items-center rounded-md font-medium", FOCUS)}
-        >
-          Guía rápida de Markdown
-        </summary>
-        <ul className="mt-2 space-y-1 text-[#535E56]">
-          <li><code># Título</code>, <code>## Subtítulo</code></li>
-          <li><code>**negrita**</code>, <code>*cursiva*</code>, <code>`código`</code></li>
-          <li><code>- elemento</code> o <code>1. elemento</code> para listas</li>
-          <li><code>- [ ] tarea</code> para listas de tareas</li>
-          <li><code>[texto](https://ejemplo.com)</code> para enlaces</li>
-          <li><code>| A | B |</code> para tablas</li>
-        </ul>
-        <p className="mt-2 text-[#535E56]">
-          No se pueden subir archivos ni imágenes aquí. El HTML se ignora por seguridad. Si
-          necesitas compartir documentos, pídelos en las propuestas.
-        </p>
-      </details>
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { SignIn } from "@clerk/nextjs";
+import { AuthSplitLayout } from "@/modules/auth/components/auth-split-layout";
+import { clerkAppearance } from "@/modules/auth/clerk-appearance";
 
 export const metadata: Metadata = { title: "Iniciar sesión | Nexora" };
 
 export default function SignInPage() {
   return (
-    <main className="flex flex-1 items-center justify-center bg-[#F5F6F2] px-4 py-12">
-      <SignIn />
-    </main>
+    <AuthSplitLayout>
+      <SignIn appearance={clerkAppearance} />
+    </AuthSplitLayout>
   );
 }

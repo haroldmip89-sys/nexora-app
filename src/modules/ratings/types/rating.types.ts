@@ -16,6 +16,7 @@ export type RatingFormState =
 export type ProjectRatingView = {
   project: { id: string; title: string };
   developerName: string;
+  developerImageUrl: string | null;
   previewName: string; // the client's own abbreviated name (server-computed), for "Antes de enviar"
   rating: null | {
     rating: number;

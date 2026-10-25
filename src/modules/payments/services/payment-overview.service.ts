@@ -42,6 +42,7 @@ export async function getProjectPaymentOverview(
     .select({
       developerId: proposals.developerId,
       developerName: users.displayName,
+      imageUrl: users.imageUrl,
       priceCents: proposals.priceCents,
       timelineWeeks: proposals.timelineWeeks,
     })
@@ -96,6 +97,7 @@ export async function getProjectPaymentOverview(
     proposal: {
       developerId: winner.developerId,
       developerName: winner.developerName,
+      imageUrl: winner.imageUrl,
       priceCents: winner.priceCents,
       currency: "USD",
       timelineWeeks: winner.timelineWeeks,

@@ -1,6 +1,16 @@
 import { DeveloperProfileLink } from "@/components/shared/developer-profile-link";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { buttonVariants } from "@/components/ui/button";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { CancelPaymentButton } from "@/modules/payments/components/cancel-payment-button";
@@ -8,6 +18,7 @@ import {
   PaymentProgress,
   type PaymentProgressProps,
 } from "@/modules/payments/components/payment-progress";
+import { PaymentStatusBadge } from "@/modules/payments/components/payment-status-badge";
 import { RefreshPaymentButton } from "@/modules/payments/components/refresh-payment-button";
 import { StartCheckoutButton } from "@/modules/payments/components/start-checkout-button";
 import {
@@ -16,13 +27,12 @@ import {
   type ProjectTransferSummary,
 } from "@/modules/payments/types/developer-transfer.types";
 import {
-  PAYMENT_ATTEMPT_STATUS_LABELS,
   type PaymentAttemptStatus,
   type ProjectPaymentOverview,
 } from "@/modules/payments/types/payment.types";
 import { ProjectStatusBadge } from "@/modules/projects/components/project-status-badge";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 
 type ReturnNotice = "success" | "cancel" | undefined;
 
@@ -58,12 +68,6 @@ function attemptText(
       ? "Pago de prueba confirmado por el servidor. El proyecto está en contratación. No se movió dinero real."
       : "Pago de prueba confirmado por el servidor. No se movió dinero real.";
   return transfer ? `${base} ${TRANSFER_TEXT[transfer.status]}.` : base;
-}
-
-function badgeLabel(status: PaymentAttemptStatus): string {
-  return status === "completed_test"
-    ? `${PAYMENT_ATTEMPT_STATUS_LABELS.completed_test} · confirmado por el servidor`
-    : PAYMENT_ATTEMPT_STATUS_LABELS[status];
 }
 
 function deriveProgress(overview: ProjectPaymentOverview): PaymentProgressProps {
@@ -105,29 +109,45 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
     : attempt
       ? "Reintentar pago de prueba"
       : "Pagar con Stripe (prueba)";
+  const completed = attempt?.status === "completed_test";
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">
-      <Link
-        href="/dashboard/projects"
-        className={cn("text-sm font-medium text-[#183D30] underline", FOCUS)}
-      >
-        Volver a mis proyectos
-      </Link>
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6">
+      <Breadcrumb aria-label="Ruta">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href="/dashboard" className={cn("rounded-sm", FOCUS)} />}>
+              Mi panel
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink
+              render={<Link href={`/projects/${project.id}`} className={cn("rounded-sm", FOCUS)} />}
+            >
+              {project.title}
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Pago de prueba</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-[#535E56]">Pago de prueba</p>
-          <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight text-[#202522]">
-            {project.title}
+          <h1 className="min-w-0 break-words text-3xl font-extrabold tracking-tight text-foreground">
+            Pago de prueba
           </h1>
+          <p className="mt-1 break-words text-sm text-muted-foreground">{project.title}</p>
         </div>
         <ProjectStatusBadge status={project.status} />
       </div>
 
       <p
         role="note"
-        className="mt-4 rounded-[14px] border border-[#183D30] bg-[#DCE6DE] p-4 text-sm text-[#202522]"
+        className="mt-4 rounded-xl border border-warning-border bg-warning-bg p-4 text-sm text-warning-fg"
       >
         <strong className="font-semibold">Modo de prueba de Stripe · No se mueve dinero real.</strong>{" "}
         Los pagos de prueba no son ingresos ni transferencias reales.
@@ -136,101 +156,147 @@ export function PaymentPageView({ overview, returnNotice }: Props) {
       {returnNotice ? (
         <p
           role="status"
-          className="mt-4 rounded-[14px] border border-[#E3E8E3] bg-[#F5F6F2] p-4 text-sm text-[#202522]"
+          className="mt-4 rounded-xl border border-border bg-surface-subtle p-4 text-sm text-foreground"
         >
           {RETURN_NOTICES[returnNotice]}
         </p>
       ) : null}
 
       <section aria-labelledby="payment-progress-title" className="mt-6">
-        <h2 id="payment-progress-title" className="mb-2 text-base font-semibold text-[#202522]">
+        <h2 id="payment-progress-title" className="mb-2 text-base font-semibold text-foreground">
           Progreso
         </h2>
         <PaymentProgress {...deriveProgress(overview)} />
       </section>
 
-      <section
-        aria-labelledby="payment-summary-title"
-        className="mt-6 rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5"
-      >
-        <h2 id="payment-summary-title" className="text-base font-semibold text-[#202522]">
-          Resumen
-        </h2>
-        <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-          <div className="min-w-0">
-            <dt className="text-xs text-[#535E56]">Proyecto</dt>
-            <dd className="break-words text-[#202522]">{project.title}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-xs text-[#535E56]">Desarrollador seleccionado</dt>
-            <dd className="break-words text-[#202522]">
-              <DeveloperProfileLink developerId={proposal.developerId} name={proposal.developerName} />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-[#535E56]">Importe</dt>
-            <dd className="text-[#202522]">{formatUsd(proposal.priceCents)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-[#535E56]">Plazo</dt>
-            <dd className="text-[#202522]">{proposal.timelineWeeks} semanas</dd>
-          </div>
-        </dl>
-      </section>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          <section aria-labelledby="payment-status-title" className="surface p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="payment-status-title" className="text-base font-semibold text-foreground">
+                Estado del pago
+              </h2>
+              {attempt ? (
+                <PaymentStatusBadge status={attempt.status} />
+              ) : (
+                <Badge variant="neutral">No iniciado</Badge>
+              )}
+            </div>
 
-      <section
-        aria-labelledby="payment-status-title"
-        className="mt-6 rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="payment-status-title" className="text-base font-semibold text-[#202522]">
-            Estado del pago
-          </h2>
-          {attempt ? (
-            <Badge
-              variant="outline"
-              className="h-auto min-h-5 whitespace-normal border-[#183D30] bg-[#F5F6F2] py-0.5 text-center text-[#183D30]"
-            >
-              {badgeLabel(attempt.status)}
-            </Badge>
-          ) : null}
+            <p className="mt-2 text-sm text-foreground">
+              {attempt
+                ? attemptText(attempt.status, project.status, transfer)
+                : awaitingDeveloper
+                  ? "El desarrollador aún no configuró sus cobros de prueba. Podrás pagar cuando lo haga."
+                  : closedWithoutPayment
+                    ? "Este proyecto ya no admite un nuevo pago de prueba."
+                    : "Aún no iniciaste el pago de prueba."}
+            </p>
+            {completed ? (
+              <p className="mt-2 text-xs text-muted-foreground">{TRANSFER_TEST_NOTICE}</p>
+            ) : null}
+            {attempt && closedWithoutPayment ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Este proyecto ya no admite un nuevo pago de prueba.
+              </p>
+            ) : null}
+
+            {canStart || canResume ? (
+              <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-3">
+                <StartCheckoutButton projectId={project.id} label={buttonLabel} />
+                {canResume ? (
+                  <>
+                    <RefreshPaymentButton projectId={project.id} />
+                    <CancelPaymentButton projectId={project.id} />
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            {completed ? (
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/dashboard"
+                  className={cn(buttonVariants({ variant: "outline", size: "touch" }), FOCUS)}
+                >
+                  Volver a mi panel
+                </Link>
+                {project.status === "contracted" ? (
+                  <Link
+                    href={`/projects/${project.id}/rate`}
+                    className={cn(buttonVariants({ size: "touch" }), FOCUS)}
+                  >
+                    Valorar al desarrollador
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
+            <p className="mt-4 border-t border-divider pt-3 text-sm text-muted-foreground">
+              Volver desde Stripe no confirma el pago. El estado solo cambia cuando el servidor lo
+              verifica.
+            </p>
+          </section>
+
+          <section aria-labelledby="payment-developer-title" className="surface p-4 sm:p-5">
+            <h2 id="payment-developer-title" className="text-base font-semibold text-foreground">
+              Desarrollador seleccionado
+            </h2>
+            <div className="mt-3 flex items-center gap-3">
+              <UserAvatar name={proposal.developerName} imageUrl={proposal.imageUrl} size="lg" />
+              <p className="min-w-0 break-words text-base font-semibold text-foreground">
+                <DeveloperProfileLink
+                  developerId={proposal.developerId}
+                  name={proposal.developerName}
+                />
+              </p>
+            </div>
+          </section>
         </div>
 
-        <p className="mt-2 text-sm text-[#202522]">
-          {attempt
-            ? attemptText(attempt.status, project.status, transfer)
-            : awaitingDeveloper
-              ? "El desarrollador aún no configuró sus cobros de prueba. Podrás pagar cuando lo haga."
-              : closedWithoutPayment
-                ? "Este proyecto ya no admite un nuevo pago de prueba."
-                : "Aún no iniciaste el pago de prueba."}
-        </p>
-        {attempt?.status === "completed_test" ? (
-          <p className="mt-2 text-xs text-[#535E56]">{TRANSFER_TEST_NOTICE}</p>
-        ) : null}
-        {attempt && closedWithoutPayment ? (
-          <p className="mt-2 text-sm text-[#535E56]">
-            Este proyecto ya no admite un nuevo pago de prueba.
-          </p>
-        ) : null}
-
-        {canStart || canResume ? (
-          <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-3">
-            <StartCheckoutButton projectId={project.id} label={buttonLabel} />
-            {canResume ? (
-              <>
-                <RefreshPaymentButton projectId={project.id} />
-                <CancelPaymentButton projectId={project.id} />
-              </>
-            ) : null}
+        <aside
+          aria-labelledby="payment-summary-title"
+          className="surface min-w-0 overflow-hidden lg:sticky lg:top-24"
+        >
+          <div className="p-4 sm:p-5">
+            <h2 id="payment-summary-title" className="text-base font-semibold text-foreground">
+              Resumen
+            </h2>
+            <dl className="mt-3 grid grid-cols-1 gap-y-3 text-sm">
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">Proyecto</dt>
+                <dd className="break-words text-foreground">{project.title}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-muted-foreground">Desarrollador seleccionado</dt>
+                <dd className="break-words text-foreground">{proposal.developerName}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Importe</dt>
+                <dd className="text-foreground">{formatUsd(proposal.priceCents)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Plazo</dt>
+                <dd className="text-foreground">{proposal.timelineWeeks} semanas</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Método</dt>
+                <dd className="text-foreground">Stripe Checkout</dd>
+              </div>
+            </dl>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Para probar usa la tarjeta 4242 4242 4242 4242 con cualquier fecha futura y CVC.
+            </p>
           </div>
-        ) : null}
-      </section>
-
-      <p className="mt-6 text-sm text-[#535E56]">
-        Volver desde Stripe no confirma el pago. El estado solo cambia cuando el servidor lo
-        verifica.
-      </p>
+          <div className="flex items-baseline justify-between gap-2 border-t border-divider bg-surface-subtle p-4 sm:p-5">
+            <p className="text-sm font-semibold text-foreground">Total de prueba</p>
+            <p className="text-foreground">
+              <span className="text-2xl font-extrabold">{formatUsd(proposal.priceCents)}</span>{" "}
+              <span className="text-xs text-muted-foreground">USD</span>
+            </p>
+          </div>
+        </aside>
+      </div>
     </main>
   );
 }

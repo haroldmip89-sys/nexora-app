@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { safeErrorLog } from "@/lib/safe-error-log";
 import { PublicCatalogFilters } from "@/modules/projects/components/public-catalog-filters";
+import { PublicCatalogHero } from "@/modules/projects/components/public-catalog-hero";
 import { PublicCatalogResults } from "@/modules/projects/components/public-catalog-results";
 import { PublicCatalogSkeleton } from "@/modules/projects/components/public-catalog-skeleton";
 import { parsePublicCatalogQuery } from "@/modules/projects/schemas/public-catalog.schema";
@@ -31,16 +32,18 @@ export default async function PublicProjectsPage({ searchParams }: Props) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-[#202522] sm:text-3xl">
-        Explorar proyectos
-      </h1>
-      <div className="mt-6 mb-6">
-        <PublicCatalogFilters query={query} technologies={technologies} />
+    <main className="flex-1">
+      <PublicCatalogHero query={query} />
+      <div className="mx-auto flex w-full max-w-page flex-col items-stretch gap-6 px-4 pt-8 pb-16 sm:px-6 lg:flex-row lg:items-start">
+        <aside className="w-full min-w-0 lg:w-[280px] lg:shrink-0">
+          <PublicCatalogFilters query={query} technologies={technologies} />
+        </aside>
+        <div className="min-w-0 flex-1">
+          <Suspense key={JSON.stringify(query)} fallback={<PublicCatalogSkeleton />}>
+            <PublicCatalogResults query={query} />
+          </Suspense>
+        </div>
       </div>
-      <Suspense key={JSON.stringify(query)} fallback={<PublicCatalogSkeleton />}>
-        <PublicCatalogResults query={query} />
-      </Suspense>
     </main>
   );
 }

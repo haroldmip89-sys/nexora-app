@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getFirstName } from "@/lib/first-name";
 import { handleAuthErrorForPage } from "@/modules/auth/services/auth-errors";
 import { requireRole } from "@/modules/auth/services/current-user.service";
 import { ClientDashboardView } from "@/modules/dashboard/components/client-dashboard-view";
@@ -14,14 +15,29 @@ export default async function DashboardPage() {
     const user = await requireRole("client", "developer");
     loaded =
       user.role === "developer"
-        ? ({ role: "developer", developerId: user.id, data: await getDeveloperDashboard(user) } as const)
-        : ({ role: "client", data: await getClientDashboard(user) } as const);
+        ? ({
+            role: "developer",
+            developerId: user.id,
+            firstName: getFirstName(user.displayName),
+            data: await getDeveloperDashboard(user),
+          } as const)
+        : ({
+            role: "client",
+            firstName: getFirstName(user.displayName),
+            data: await getClientDashboard(user),
+          } as const);
   } catch (error) {
     handleAuthErrorForPage(error);
   }
 
   if (loaded.role === "developer") {
-    return <DeveloperDashboardView data={loaded.data} developerId={loaded.developerId} />;
+    return (
+      <DeveloperDashboardView
+        data={loaded.data}
+        developerId={loaded.developerId}
+        firstName={loaded.firstName}
+      />
+    );
   }
-  return <ClientDashboardView data={loaded.data} />;
+  return <ClientDashboardView data={loaded.data} firstName={loaded.firstName} />;
 }

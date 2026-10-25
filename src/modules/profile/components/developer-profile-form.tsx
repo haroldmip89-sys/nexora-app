@@ -9,6 +9,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { saveDeveloperProfileAction } from "@/modules/profile/actions/developer-profile.actions";
+import { ACCOUNT_ANCHORS } from "@/modules/profile/components/account-section-nav";
 import { DeveloperAvatar } from "@/modules/profile/components/developer-avatar";
 import {
   AVAILABILITY_LABELS,
@@ -26,20 +27,19 @@ import {
 
 type Props = {
   profile: OwnDeveloperProfile;
-  initials: string;
   /** Slot for spec 020 ("Tu valoración"). The section is not rendered without it. */
   ratingSlot?: ReactNode;
 };
 
-type FormValues = Omit<OwnDeveloperProfile, "displayName" | "hasProfile">;
+type FormValues = Omit<OwnDeveloperProfile, "displayName" | "hasProfile" | "imageUrl">;
 type LinkRow = ProfileLink & { key: number };
 
-const FOCUS_RING = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
-const CONTROL = "min-h-11 rounded-[10px] border-[#E3E8E3] bg-white text-[#202522]";
-const CARD = "rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5";
-const SECTION_TITLE = "text-lg font-semibold text-[#202522]";
-const HINT = "text-xs text-[#535E56]";
-const ERROR_TEXT = "text-sm text-[#B42318]";
+const FOCUS_RING = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const CONTROL = "min-h-11 rounded-[10px] border-input bg-card text-foreground";
+const CARD = "surface scroll-mt-24 p-5 sm:p-6";
+const SECTION_TITLE = "text-lg font-semibold text-foreground";
+const HINT = "text-xs text-muted-foreground";
+const ERROR_TEXT = "text-sm text-destructive";
 
 const LINK_TYPES = Object.keys(LINK_TYPE_LABELS) as ProfileLinkType[];
 const AVAILABILITIES = Object.keys(AVAILABILITY_LABELS) as DeveloperAvailability[];
@@ -61,7 +61,7 @@ function toRows(links: ProfileLink[]): LinkRow[] {
   return links.map((link, index) => ({ ...link, key: index }));
 }
 
-export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
+export function DeveloperProfileForm({ profile, ratingSlot }: Props) {
   const router = useRouter();
   const uid = useId();
   const fid = (name: string) => `${uid}-${name}`;
@@ -179,16 +179,26 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
     ) : null;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6" aria-busy={pending}>
+    <form
+      id={ACCOUNT_ANCHORS.profile}
+      onSubmit={onSubmit}
+      noValidate
+      className="flex scroll-mt-24 flex-col gap-6"
+      aria-busy={pending}
+    >
       <section aria-labelledby={fid("photo-title")} className={CARD}>
         <h2 id={fid("photo-title")} className={SECTION_TITLE}>
           Foto de perfil
         </h2>
         <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-          <DeveloperAvatar initials={initials} displayName={profile.displayName} size="lg" />
-          <p className="text-sm text-[#535E56]">
-            Tu foto por defecto se genera con tus iniciales. La subida de fotos llegará más
-            adelante.
+          <DeveloperAvatar
+            displayName={profile.displayName}
+            imageUrl={profile.imageUrl}
+            size="lg"
+          />
+          <p className="text-sm text-muted-foreground">
+            Usamos la foto de tu cuenta de Google y es pública en tu perfil. Si no tienes una,
+            se muestran tus iniciales.
           </p>
         </div>
       </section>
@@ -197,9 +207,9 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
         <h2 id={fid("basic-title")} className={SECTION_TITLE}>
           Información básica
         </h2>
-        <div className="mt-3 flex flex-col gap-4">
+        <div className="mt-3 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={fid("displayName")} className="text-sm font-medium text-[#202522]">
+            <Label htmlFor={fid("displayName")} className="text-sm font-medium text-foreground">
               Nombre visible
             </Label>
             <Input
@@ -208,7 +218,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
               readOnly
               aria-readonly="true"
               aria-describedby={`${fid("displayName")}-hint`}
-              className={cn(CONTROL, "bg-[#F5F6F2]")}
+              className={cn(CONTROL, "bg-muted")}
             />
             <p id={`${fid("displayName")}-hint`} className={HINT}>
               Se gestiona desde tu cuenta de acceso
@@ -216,7 +226,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={fid("headline")} className="text-sm font-medium text-[#202522]">
+            <Label htmlFor={fid("headline")} className="text-sm font-medium text-foreground">
               Titular
             </Label>
             <Input
@@ -236,7 +246,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={fid("location")} className="text-sm font-medium text-[#202522]">
+            <Label htmlFor={fid("location")} className="text-sm font-medium text-foreground">
               Ubicación
             </Label>
             <Input
@@ -252,7 +262,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={fid("availability")} className="text-sm font-medium text-[#202522]">
+            <Label htmlFor={fid("availability")} className="text-sm font-medium text-foreground">
               Disponibilidad
             </Label>
             <NativeSelect
@@ -279,7 +289,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
           Biografía
         </h2>
         <div className="mt-3 flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={fid("bio")} className="text-sm font-medium text-[#202522]">
+          <Label htmlFor={fid("bio")} className="text-sm font-medium text-foreground">
             Sobre ti
           </Label>
           <Textarea
@@ -289,7 +299,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
             rows={6}
             aria-invalid={Boolean(errors.bio)}
             aria-describedby={describedBy("bio", `${fid("bio")}-hint`, `${fid("bio")}-count`)}
-            className="rounded-[10px] border-[#E3E8E3] bg-white font-sans text-[#202522]"
+            className="rounded-[10px] border-input bg-card font-mono text-sm text-foreground"
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p id={`${fid("bio")}-hint`} className={HINT}>
@@ -297,7 +307,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
             </p>
             <p
               id={`${fid("bio")}-count`}
-              className={cn(HINT, values.bio.length > L.bio.max && "font-medium text-[#B42318]")}
+              className={cn(HINT, values.bio.length > L.bio.max && "font-medium text-destructive")}
             >
               {values.bio.length} / {L.bio.max}
             </p>
@@ -383,7 +393,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
         </h2>
         <div className="mt-3 flex flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={fid("contactEmail")} className="text-sm font-medium text-[#202522]">
+            <Label htmlFor={fid("contactEmail")} className="text-sm font-medium text-foreground">
               Correo de contacto
             </Label>
             <Input
@@ -408,14 +418,14 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
             className="flex min-w-0 flex-col gap-1"
             aria-describedby={describedBy("contactVisibility")}
           >
-            <legend className="mb-1 text-sm font-medium text-[#202522]">
+            <legend className="mb-1 text-sm font-medium text-foreground">
               ¿Quién ve tu correo?
             </legend>
             {VISIBILITIES.map((value) => (
               <label
                 key={value}
                 htmlFor={`${fid("visibility")}-${value}`}
-                className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-[#202522]"
+                className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground"
               >
                 <input
                   id={`${fid("visibility")}-${value}`}
@@ -424,7 +434,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
                   value={value}
                   checked={values.contactVisibility === value}
                   onChange={() => set("contactVisibility", value)}
-                  className={cn("size-5 shrink-0 accent-[#183D30]", FOCUS_RING)}
+                  className={cn("size-5 shrink-0 accent-primary", FOCUS_RING)}
                 />
                 <span>{CONTACT_VISIBILITY_LABELS[value]}</span>
               </label>
@@ -435,7 +445,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
       </section>
 
       {ratingSlot ? (
-        <section aria-labelledby={fid("rating-title")} className={CARD}>
+        <section aria-labelledby={fid("rating-title")} id={ACCOUNT_ANCHORS.ratings} className={CARD}>
           <h2 id={fid("rating-title")} className={SECTION_TITLE}>
             Tu valoración
           </h2>
@@ -447,7 +457,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
         {notice === "saved" ? (
           <p
             role="status"
-            className="rounded-[10px] bg-[#DCE6DE] p-3 text-sm font-medium text-[#183D30]"
+            className="rounded-[10px] border border-success-border bg-success-bg p-3 text-sm font-medium text-success-fg"
           >
             Perfil guardado
           </p>
@@ -455,7 +465,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
         {unknownError ? (
           <p
             role="alert"
-            className="rounded-[10px] border border-[#B42318]/30 bg-[#B42318]/5 p-3 text-sm text-[#B42318]"
+            className="rounded-[10px] border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
           >
             {unknownError}
           </p>
@@ -475,7 +485,7 @@ export function DeveloperProfileForm({ profile, initials, ratingSlot }: Props) {
         <Button
           type="submit"
           disabled={pending}
-          className="min-h-11 rounded-[10px] bg-[#183D30] px-4 text-white hover:bg-[#183D30]/90"
+          className="min-h-11 rounded-[10px] bg-primary px-4 text-primary-foreground hover:bg-primary-hover"
         >
           {pending ? "Guardando..." : "Guardar perfil"}
         </Button>

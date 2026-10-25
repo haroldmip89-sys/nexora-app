@@ -1,6 +1,6 @@
 # Rediseño visual, fase B: landing (`/`) y listado público de proyectos (`/projects`)
 
-Estado: borrador
+Estado: done
 
 Spec 022b. **Depende de 022a** (tokens, fuente, `surface`, `max-w-page`, controles `ui/**`, header y footer globales, `InitialsAvatar`): no se implementa hasta que 022a esté `done`. Es independiente de 022c y 022d (archivos disjuntos; solo comparten `docs/MANUAL-TESTS.md`, ver "Tareas").
 
@@ -288,3 +288,8 @@ Compara con `docs/assets/2-landing/Main.dc.html` y `docs/assets/3-paneles/Projec
 
 - 022c `dashboards-and-payment` y 022d `profiles-and-project-forms` (independientes de esta; dependen de 022a).
 - Opcional: Open Graph y datos estructurados del landing (spec de SEO/despliegue); un catálogo con orden por plazo (spec de catálogo).
+
+## Corrección posterior (2026-10-24, modo BUILD, decidida por el humano)
+
+La vista previa del hero (conflicto 3, "Ejemplo ilustrativo") se **sustituye** por un carrusel de 3 fotos (`public/hero/hero-1..3.jpg`, copiadas de `docs/assets/5-hero/`) como **fondo de toda la sección hero** (prueba pedida por el humano), con una máscara que deja casi limpio el lado del texto y revela la foto hacia la derecha, y cambio cada 3 s; el botón de pausa queda abajo a la derecha. Reutiliza `ImageCarousel` (022e), al que se añaden las props opcionales `slidesClassName` y `controlsClassName`. Decorativas (`alt=""`, `aria-hidden`).
+

@@ -1,6 +1,6 @@
 const PLACEHOLDERS = Array.from({ length: 6 }, (_, index) => index);
 
-const BLOCK = "rounded bg-[#E3E8E3] animate-pulse motion-reduce:animate-none";
+const BLOCK = "rounded bg-border animate-pulse motion-reduce:animate-none";
 
 export function PublicCatalogSkeleton() {
   return (
@@ -8,12 +8,12 @@ export function PublicCatalogSkeleton() {
       <span className="sr-only">Cargando proyectos…</span>
       <ul
         aria-hidden="true"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4"
       >
         {PLACEHOLDERS.map((key) => (
           <li
             key={key}
-            className="flex flex-col gap-3 rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5"
+            className="flex flex-col gap-3 surface p-5 sm:p-[22px]"
           >
             <div className={`${BLOCK} h-5 w-1/3`} />
             <div className={`${BLOCK} h-5 w-4/5`} />

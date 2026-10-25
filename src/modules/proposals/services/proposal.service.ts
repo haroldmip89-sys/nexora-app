@@ -62,6 +62,7 @@ const clientSummaryColumns = {
   id: proposals.id,
   developerId: proposals.developerId,
   developerName: users.displayName,
+  imageUrl: users.imageUrl,
   priceCents: proposals.priceCents,
   timelineWeeks: proposals.timelineWeeks,
   status: proposals.status,

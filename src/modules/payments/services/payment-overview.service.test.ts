@@ -142,7 +142,7 @@ describe("getProjectPaymentOverview", () => {
     const overview = await getProjectPaymentOverview(client, project.id);
     expect(overview).toEqual({
       project: { id: project.id, title: "Landing page", status: "proposal_selected" },
-      proposal: { developerId: expect.any(String), developerName: "Dana Developer", priceCents: 150_000, currency: "USD", timelineWeeks: 3 },
+      proposal: { developerId: expect.any(String), developerName: "Dana Developer", imageUrl: null, priceCents: 150_000, currency: "USD", timelineWeeks: 3 },
       attempt: null,
       canStart: true,
       developerPayoutsReady: true,
@@ -212,7 +212,7 @@ describe("getProjectPaymentOverview", () => {
     const overview = await getProjectPaymentOverview(client, project.id);
     expect(Object.keys(overview).sort()).toEqual(["attempt", "canResume", "canStart", "developerPayoutsReady", "project", "proposal", "transfer"]);
     expect(Object.keys(overview.project).sort()).toEqual(["id", "status", "title"]);
-    expect(Object.keys(overview.proposal).sort()).toEqual(["currency", "developerId", "developerName", "priceCents", "timelineWeeks"]);
+    expect(Object.keys(overview.proposal).sort()).toEqual(["currency", "developerId", "developerName", "imageUrl", "priceCents", "timelineWeeks"]);
     expect(Object.keys(overview.attempt!).sort()).toEqual(["amountCents", "createdAt", "status", "updatedAt"]);
     const json = JSON.stringify(overview);
     expect(json).not.toContain("cs_test_");

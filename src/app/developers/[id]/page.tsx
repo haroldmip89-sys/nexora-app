@@ -37,7 +37,7 @@ export default async function DeveloperProfilePage({ params }: Props) {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6">
       <DeveloperProfileView
         profile={profile}
         isOwner={viewer?.id === profile.userId}

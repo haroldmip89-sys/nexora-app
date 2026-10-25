@@ -1,22 +1,22 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DeveloperProposalSection } from "@/modules/proposals/components/developer-proposal-section";
 import type { PublicViewer } from "@/modules/projects/types/public-project.types";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
-const PRIMARY = "h-11 rounded-[10px] bg-[#183D30] px-4 text-white hover:bg-[#183D30]/90";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const PRIMARY = "h-11 rounded-[10px] bg-primary px-4 text-primary-foreground hover:bg-primary-hover";
 const SECONDARY = "h-11 rounded-[10px] px-4";
 
 function Note({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-[#535E56]">{children}</p>;
+  return <p className="text-sm text-muted-foreground">{children}</p>;
 }
 
 type Props = { projectId: string; viewer: PublicViewer };
 
 /**
  * Role-based call to action of the public detail. Pure decision table over
- * `viewer`; spec 007 replaces the `developer` branch with the proposal form.
+ * `viewer`; the developer branch links to the proposal section (`#propuesta`),
+ * which `PublicProjectDetail` renders in the main column.
  */
 export function ProposalCta({ projectId, viewer }: Props) {
   if (viewer.kind === "visitor") {
@@ -51,7 +51,13 @@ export function ProposalCta({ projectId, viewer }: Props) {
   }
 
   if (viewer.role === "developer") {
-    return <DeveloperProposalSection projectId={projectId} />;
+    return (
+      <div className="flex flex-col gap-3">
+        <Link href="#propuesta" className={cn(buttonVariants({ size: "lg" }), PRIMARY, FOCUS)}>
+          Ir a la propuesta
+        </Link>
+      </div>
+    );
   }
 
   if (viewer.role === "client") {

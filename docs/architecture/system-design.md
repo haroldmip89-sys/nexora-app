@@ -93,6 +93,7 @@ Nexora no almacena credenciales, contraseñas ni datos de tarjeta. Cada categor�
 | Eventos de webhook procesados | Neon (`processedPaymentEvent`) | Copia del `event.id` para idempotencia |
 | Archivos privados | Supabase Storage | MVP sin archivos; reservado. Acceso solo por URLs firmadas desde servidor (spec 015); Neon guardaría solo la ruta del objeto |
 | Cuenta conectada del desarrollador (Stripe Connect) | Stripe (fuente de verdad: datos personales, requisitos, capacidades) | Neon guarda solo el `stripe_account_id` único y el estado derivado como caché (spec 011a). Nunca requisitos, email, país ni nombre |
+| Foto de perfil del desarrollador | Clerk | `users.image_url`: copia de la URL de la foto de Clerk (`img.clerk.com`), solo desarrolladores, pública (spec 023). Neon no guarda el archivo |
 | Valoraciones | Neon | Tabla `developer_ratings` (spec 020). El nombre del cliente no se guarda: se abrevia en servidor al leer desde `users` |
 
 ---
@@ -112,6 +113,7 @@ src/
     profile/     -> edición y vista pública del perfil del desarrollador, privacidad del correo de contacto (spec 019)
     ratings/     -> valoraciones del cliente al desarrollador contratado (spec 020)
     dashboard/   -> panel de resumen del cliente y del desarrollador, solo lectura (specs 012 y 013)
+    landing/     -> solo UI del landing público (spec 022b)
   lib/
     db/          -> cliente Drizzle y schema (ubicación final: spec 003, D7)
   app/
@@ -130,6 +132,7 @@ Dependencias permitidas (sin ciclos):
 | `profile` | `users`, `projects`, `proposals`, `auth` (nadie depende de `profile` salvo `src/app`) |
 | `ratings` | `projects`, `proposals`, `users`, `auth` (lectura de sus tablas Drizzle); más una dependencia de **solo tipo** hacia `profile` (`DeveloperRatingSummary`), sin ciclo porque `profile` no importa `ratings` (spec 020) |
 | `dashboard` | `auth` y lectura de las tablas Drizzle de `projects`, `proposals`, `payments`, `ratings` y `users` (no sus servicios, con una excepción: `getConnectedAccountOverview` y `getDeveloperRatingSummary`, solo lectura y sin Stripe, spec 013; solo lectura, sin Stripe). Nadie depende de `dashboard` salvo `src/app`; `payments` -> `dashboard` ausente (spec 012) |
+| `landing` | `auth`, `projects` (solo lectura vía servicio público de catálogo); nadie depende de `landing` salvo `src/app` |
 
 Reglas:
 
@@ -366,5 +369,6 @@ Los ids son los de la spec 017 (017-D1 a 017-D6). Guía: `docs/DEPLOYMENT.md`.
 | 017-D4 | HSTS sin `includeSubDomains` ni `preload` (demo en `*.vercel.app`, Clerk Development, sin dominio propio) | 017 |
 | 017-D5 | `title` y `lang` de `src/app/layout.tsx` no bloquean el despliegue; se resuelven en 006b | 017 |
 | 017-D6 | `npm run verify` ya existe y se ejecuta a mano; no hay workflow de GitHub Actions (P5 = no, sin T4/T5) | 017 |
+| 023-D1 | La foto de Google de Clerk reemplaza a 019 D1 (solo iniciales); URL de `img.clerk.com`, pública | 023 |
 
 Cualquier cambio de arquitectura requiere una spec aprobada.

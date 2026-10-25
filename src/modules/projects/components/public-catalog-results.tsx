@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PaginationNav } from "@/components/shared/pagination-nav";
 import { safeErrorLog } from "@/lib/safe-error-log";
 import { cn } from "@/lib/utils";
 import { PublicProjectCard } from "@/modules/projects/components/public-project-card";
@@ -10,13 +11,9 @@ import type {
   PublicCatalogQuery,
 } from "@/modules/projects/types/public-project.types";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
-const LINK = cn("rounded-sm text-sm font-medium text-[#183D30] underline", FOCUS);
-const EMPTY_CLASS = "border-[#E3E8E3] bg-white";
-const PAGE_LINK = cn(
-  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-[10px] border border-[#E3E8E3] bg-white px-3 text-sm font-medium text-[#183D30]",
-  FOCUS,
-);
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const LINK = cn("rounded-sm text-sm font-bold text-primary underline", FOCUS);
+const EMPTY_CLASS = "border-input bg-card";
 
 type Props = { query: PublicCatalogQuery };
 
@@ -27,27 +24,6 @@ function hasActiveFilters(query: PublicCatalogQuery): boolean {
     query.budgetMaxCents !== null ||
     query.weeks !== null ||
     query.technologies.length > 0
-  );
-}
-
-function Pagination({ data, query }: { data: PublicCatalogPage; query: PublicCatalogQuery }) {
-  const { page, totalPages } = data;
-  return (
-    <nav aria-label="Paginación" className="mt-8 flex flex-wrap items-center justify-center gap-3">
-      {page > 1 ? (
-        <Link href={buildCatalogHref(query, { page: page - 1 })} rel="prev" className={PAGE_LINK}>
-          Anterior
-        </Link>
-      ) : null}
-      <span className="text-sm text-[#535E56]">
-        Página {page} de {totalPages}
-      </span>
-      {page < totalPages ? (
-        <Link href={buildCatalogHref(query, { page: page + 1 })} rel="next" className={PAGE_LINK}>
-          Siguiente
-        </Link>
-      ) : null}
-    </nav>
   );
 }
 
@@ -108,18 +84,22 @@ export async function PublicCatalogResults({ query }: Props) {
   }
 
   return (
-    <section aria-label="Resultados">
-      <p className="mb-4 text-sm text-[#535E56]" role="status">
+    <section aria-label="Resultados" className="flex flex-col gap-[18px]">
+      <p className="text-base font-bold text-foreground" role="status">
         Mostrando {data.total} {data.total === 1 ? "proyecto publicado" : "proyectos publicados"}
       </p>
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
         {data.items.map((project) => (
           <li key={project.id} className="flex">
             <PublicProjectCard project={project} />
           </li>
         ))}
       </ul>
-      {data.totalPages > 1 ? <Pagination data={data} query={query} /> : null}
+      <PaginationNav
+        page={data.page}
+        totalPages={data.totalPages}
+        buildHref={(target) => buildCatalogHref(query, { page: target })}
+      />
     </section>
   );
 }

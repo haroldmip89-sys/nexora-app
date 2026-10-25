@@ -29,11 +29,18 @@ export default async function EditProjectPage({ params }: Props) {
   const technologies = await listTechnologies();
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6">
+    <main className="mx-auto w-full max-w-page flex-1 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="min-w-0 break-words text-2xl font-semibold tracking-tight text-[#202522]">
-          {project.title}
-        </h1>
+        <div className="min-w-0">
+          <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-foreground">
+            Editar proyecto
+          </h1>
+          <p className="mt-1 break-words text-[15px] text-muted-foreground">
+            {project.status === "draft"
+              ? "Borrador · los cambios se ven en el catálogo al publicar."
+              : project.title}
+          </p>
+        </div>
         <ProjectStatusBadge status={project.status} />
       </div>
       <div className="mt-4">
@@ -43,7 +50,7 @@ export default async function EditProjectPage({ params }: Props) {
           proposalCount={project.proposalCount}
         />
       </div>
-      <div className="mt-6 rounded-2xl border border-[#E3E8E3] bg-white p-5 sm:p-6">
+      <div className="mt-6">
         <ProjectForm project={project} technologies={technologies} />
       </div>
     </main>

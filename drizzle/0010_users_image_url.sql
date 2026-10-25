@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "image_url" text;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_image_url_format" CHECK ("users"."image_url" IS NULL OR ("users"."image_url" LIKE 'https://%' AND char_length("users"."image_url") <= 2048));

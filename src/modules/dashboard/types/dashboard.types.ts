@@ -21,6 +21,8 @@ export type DashboardProjectPayment = {
   /** Winner id (only builds the public profile link) and users.display_name; no email. */
   developerId: string;
   developerName: string;
+  /** Developer's Clerk photo URL copy (users.image_url); null = initials. */
+  imageUrl: string | null;
   /** From the accepted proposal. */
   amountCents: number;
   /** Latest attempt; null = not started. */

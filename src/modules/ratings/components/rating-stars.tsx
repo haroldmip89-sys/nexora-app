@@ -21,7 +21,7 @@ export function RatingStars({ value, className, starClassName }: RatingStarsProp
           aria-hidden="true"
           className={cn(
             "size-4",
-            n <= rounded ? "fill-[#183D30] text-[#183D30]" : "text-[#183D30]/40",
+            n <= rounded ? "fill-star text-star" : "fill-border text-border",
             starClassName,
           )}
         />

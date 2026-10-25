@@ -45,6 +45,7 @@ async function findContractedWinner(project: { id: string; contractedAt: Date | 
       proposalId: proposals.id,
       developerId: proposals.developerId,
       developerName: users.displayName,
+      developerImageUrl: users.imageUrl,
     })
     .from(proposalSelections)
     .innerJoin(
@@ -133,6 +134,7 @@ export async function getProjectRatingView(
   return {
     project: { id: project.id, title: project.title },
     developerName: winner.developerName,
+    developerImageUrl: winner.developerImageUrl,
     previewName: abbreviateClientName(actor.displayName),
     rating: row
       ? {

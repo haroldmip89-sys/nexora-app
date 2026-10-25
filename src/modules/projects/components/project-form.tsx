@@ -12,6 +12,7 @@ import { FormField } from "@/components/shared/form-field";
 import { TagPicker } from "@/components/shared/tag-picker";
 import { centsToUsd } from "@/lib/money";
 import { MarkdownEditor } from "@/modules/projects/components/markdown-editor";
+import { MarkdownHelpCard } from "@/modules/projects/components/markdown-help-card";
 import {
   createProjectAction,
   updateProjectAction,
@@ -60,7 +61,8 @@ function toFormValues(project?: EditableProject): ProjectFormValues {
   };
 }
 
-const CONTROL = "h-10 rounded-[10px] border-[#E3E8E3] bg-white text-[#202522]";
+const CONTROL = "h-11 rounded-[10px] border-input bg-card text-foreground";
+const NOTE = "rounded-[10px] bg-secondary p-3 text-sm text-secondary-foreground";
 
 export function ProjectForm({ project, technologies }: Props) {
   const isEdit = Boolean(project);
@@ -82,7 +84,8 @@ export function ProjectForm({ project, technologies }: Props) {
   const L = PROJECT_LIMITS;
 
   return (
-    <form action={formAction} className="flex flex-col gap-5" aria-busy={pending}>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <form action={formAction} className="surface flex min-w-0 flex-col gap-5 p-5 sm:p-6" aria-busy={pending}>
       <div aria-live="polite">
         {state.status === "error" && state.message ? (
           <p
@@ -95,13 +98,13 @@ export function ProjectForm({ project, technologies }: Props) {
       </div>
 
       {status === "published" ? (
-        <p className="rounded-[10px] bg-[#DCE6DE] p-3 text-sm text-[#183D30]">
+        <p className={NOTE}>
           Este proyecto está publicado: la categoría, el presupuesto y el plazo no se pueden
           modificar porque los desarrolladores ya pueden ofertar sobre ellos.
         </p>
       ) : null}
       {fullyReadOnly ? (
-        <p className="rounded-[10px] bg-[#DCE6DE] p-3 text-sm text-[#183D30]">
+        <p className={NOTE}>
           Este proyecto ya no se puede editar. Solo puedes consultarlo.
         </p>
       ) : null}
@@ -185,7 +188,7 @@ export function ProjectForm({ project, technologies }: Props) {
         )}
       </FormField>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2">
         <FormField name="budgetMinUsd" label="Presupuesto mínimo (USD)" error={errors.budgetMinUsd}>
           {({ id, describedBy, invalid }) => (
             <Input
@@ -251,7 +254,7 @@ export function ProjectForm({ project, technologies }: Props) {
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Link
           href="/dashboard/projects"
-          className="inline-flex h-10 items-center justify-center rounded-[10px] px-4 text-sm font-medium text-[#183D30] outline-none hover:bg-[#DCE6DE] focus-visible:ring-3 focus-visible:ring-[#183D30]/40"
+          className="inline-flex min-h-11 items-center justify-center rounded-[10px] border border-border bg-card px-4 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40"
         >
           {fullyReadOnly ? "Volver a mis proyectos" : "Cancelar"}
         </Link>
@@ -263,7 +266,7 @@ export function ProjectForm({ project, technologies }: Props) {
               value="draft"
               variant="outline"
               disabled={pending}
-              className="h-10 rounded-[10px] px-4"
+              className="min-h-11 rounded-[10px] px-4"
             >
               {pending ? "Guardando..." : status === "published" ? "Guardar cambios" : "Guardar borrador"}
             </Button>
@@ -273,7 +276,7 @@ export function ProjectForm({ project, technologies }: Props) {
                 name="intent"
                 value="publish"
                 disabled={pending}
-                className="h-10 rounded-[10px] bg-[#183D30] px-4 text-white hover:bg-[#183D30]/90"
+                className="min-h-11 rounded-[10px] px-4"
               >
                 {pending ? "Guardando..." : "Publicar"}
               </Button>
@@ -282,5 +285,7 @@ export function ProjectForm({ project, technologies }: Props) {
         )}
       </div>
     </form>
+    <MarkdownHelpCard />
+    </div>
   );
 }

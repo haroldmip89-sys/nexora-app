@@ -103,6 +103,7 @@ describe("getOwnProfile / saveOwnProfile", () => {
     const dev = await seedUser("developer", "Ada Lovelace");
     expect(await getOwnProfile(dev)).toEqual({
       displayName: "Ada Lovelace",
+      imageUrl: null,
       headline: "",
       location: "",
       availability: "available",
@@ -172,6 +173,7 @@ describe("getPublicDeveloperProfile", () => {
       userId: dev.id,
       displayName: "Lucía Ramos",
       initials: "LR",
+      imageUrl: null,
       hasProfile: false,
       headline: null,
       location: null,
@@ -189,13 +191,30 @@ describe("getPublicDeveloperProfile", () => {
     const pub = await getPublicDeveloperProfile(dev.id, null);
     expect(pub && Object.keys(pub).sort()).toEqual(
       [
-        "userId", "displayName", "initials", "hasProfile", "headline", "location",
+        "userId", "displayName", "initials", "imageUrl", "hasProfile", "headline", "location",
         "availability", "bio", "links", "contactEmail", "contactState",
       ].sort(),
     );
     expect(JSON.stringify(pub)).not.toContain(ACCESS_EMAIL);
     expect(pub?.contactEmail).toBeNull();
     expect(pub?.contactState).toBe("restricted");
+  });
+
+  it("exposes imageUrl for a developer with a photo, also without a saved profile", async () => {
+    const photo = "https://img.clerk.com/abc123";
+    const dev = await seedUser("developer");
+    await ctx.db.update(users).set({ imageUrl: photo }).where(eq(users.id, dev.id));
+    expect(await getPublicDeveloperProfile(dev.id, null)).toMatchObject({ hasProfile: false, imageUrl: photo });
+    await saveOwnProfile(dev, input());
+    expect(await getPublicDeveloperProfile(dev.id, null)).toMatchObject({ hasProfile: true, imageUrl: photo });
+    const own = await getOwnProfile(dev);
+    expect(own.imageUrl).toBe(photo);
+    expect(Object.keys(own).sort()).toEqual(
+      [
+        "displayName", "imageUrl", "headline", "location", "availability", "bio", "links",
+        "contactEmail", "contactVisibility", "hasProfile",
+      ].sort(),
+    );
   });
 
   it("accepted_client: visible only to the client owning a project with an accepted proposal", async () => {
@@ -247,10 +266,11 @@ describe("getPublicDeveloperProfile", () => {
     await seedProposal(owner, dev, "accepted");
     await ctx.db
       .update(users)
-      .set({ email: `${dev.id}${DELETED_EMAIL_DOMAIN}` })
+      .set({ email: `${dev.id}${DELETED_EMAIL_DOMAIN}`, imageUrl: "https://img.clerk.com/stale" })
       .where(eq(users.id, dev.id));
     const pub = await getPublicDeveloperProfile(dev.id, { id: owner.id, role: "client" });
     expect(pub).toMatchObject({ contactEmail: null, contactState: "none", initials: "DU", hasProfile: true });
+    expect(pub?.imageUrl).toBeNull();
     expect(JSON.stringify(pub)).not.toContain(CONTACT_EMAIL);
   });
 });

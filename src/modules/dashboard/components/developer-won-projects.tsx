@@ -1,18 +1,18 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { DeveloperWonProject } from "@/modules/dashboard/types/developer-dashboard.types";
-import {
-  DEVELOPER_TRANSFER_STATUS_LABELS,
-  TRANSFER_REASON_MESSAGES,
-  TRANSFER_TEST_NOTICE,
-} from "@/modules/payments/types/developer-transfer.types";
-import { PAYMENT_ATTEMPT_STATUS_LABELS } from "@/modules/payments/types/payment.types";
+import { PaymentStatusBadge, TransferStatusBadge } from "@/modules/payments/components/payment-status-badge";
+import { TRANSFER_REASON_MESSAGES, TRANSFER_TEST_NOTICE } from "@/modules/payments/types/developer-transfer.types";
 import { ProjectStatusBadge } from "@/modules/projects/components/project-status-badge";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 const dateFormatter = new Intl.DateTimeFormat("es", { dateStyle: "medium" });
+const HEAD = "h-11 bg-surface-subtle px-4 text-xs font-bold tracking-[0.05em] text-muted-foreground uppercase";
+const CELL = "px-4 py-4 align-top whitespace-normal";
 
 type Props = {
   items: DeveloperWonProject[];
@@ -22,90 +22,99 @@ type Props = {
 function WonRow({ item }: { item: DeveloperWonProject }) {
   const { payment, transfer } = item;
   return (
-    <li className="flex flex-col gap-3 rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="min-w-0 break-words text-base font-semibold text-[#202522]">{item.title}</h3>
-        <ProjectStatusBadge status={item.status} />
-      </div>
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-        <div className="min-w-0">
-          <dt className="text-xs text-[#535E56]">Cliente</dt>
-          <dd className="break-words text-[#202522]">{item.clientName}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-[#535E56]">Importe de tu propuesta</dt>
-          <dd className="text-[#202522]">{formatUsd(item.amountCents)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-[#535E56]">Pago de prueba del cliente</dt>
-          <dd className="text-[#202522]">
-            {payment ? PAYMENT_ATTEMPT_STATUS_LABELS[payment.status] : "No iniciado"}
-            {payment ? (
-              <span className="text-xs text-[#535E56]"> · {dateFormatter.format(payment.updatedAt)}</span>
+    <TableRow>
+      <TableHead scope="row" className={cn(CELL, "h-auto min-w-48 font-bold text-foreground")}>
+        <span className="block break-words">{item.title}</span>
+        <span className="mt-1 block">
+          <ProjectStatusBadge status={item.status} />
+        </span>
+      </TableHead>
+      <TableCell className={cn(CELL, "break-words")}>{item.clientName}</TableCell>
+      <TableCell className={cn(CELL, "text-right font-bold")}>{formatUsd(item.amountCents)}</TableCell>
+      <TableCell className={CELL}>
+        {payment ? (
+          <div className="flex flex-col items-start gap-1">
+            <PaymentStatusBadge status={payment.status} />
+            <span className="text-xs text-muted-foreground">{dateFormatter.format(payment.updatedAt)}</span>
+          </div>
+        ) : (
+          <Badge variant="neutral">No iniciado</Badge>
+        )}
+      </TableCell>
+      <TableCell className={cn(CELL, "min-w-56")}>
+        {transfer ? (
+          <div className="flex flex-col items-start gap-1">
+            <TransferStatusBadge status={transfer.status} />
+            {transfer.completedAt ? (
+              <span className="text-xs text-muted-foreground">{dateFormatter.format(transfer.completedAt)}</span>
             ) : null}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-[#535E56]">Transferencia</dt>
-          <dd className="text-[#202522]">
-            {transfer ? (
-              <>
-                {DEVELOPER_TRANSFER_STATUS_LABELS[transfer.status]}
-                {transfer.completedAt ? (
-                  <span className="text-xs text-[#535E56]"> · {dateFormatter.format(transfer.completedAt)}</span>
-                ) : null}
-                <span className="block text-xs text-[#535E56]">{TRANSFER_TEST_NOTICE}</span>
-                {transfer.reason && transfer.status !== "completed_test" ? (
-                  <span className="block text-xs text-[#535E56]">{TRANSFER_REASON_MESSAGES[transfer.reason]}</span>
-                ) : null}
-              </>
-            ) : (
-              "Sin transferencia todavía"
-            )}
-          </dd>
-        </div>
-      </dl>
-      {transfer ? (
-        <div className="flex flex-wrap items-start gap-x-3 gap-y-2 border-t border-[#E3E8E3] pt-3">
-          <Link
-            href="/dashboard/payouts"
-            className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4", FOCUS)}
-          >
-            Ver en Cobros de prueba
-          </Link>
-        </div>
-      ) : null}
-    </li>
+            <span className="text-xs text-muted-foreground">{TRANSFER_TEST_NOTICE}</span>
+            {transfer.reason && transfer.status !== "completed_test" ? (
+              <span className="text-xs text-muted-foreground">{TRANSFER_REASON_MESSAGES[transfer.reason]}</span>
+            ) : null}
+            <Link
+              href="/dashboard/payouts"
+              className={cn(buttonVariants({ variant: "outline" }), "mt-1 h-10 px-4", FOCUS)}
+            >
+              Ver en Cobros de prueba
+            </Link>
+          </div>
+        ) : (
+          <Badge variant="neutral">Sin transferencia todavía</Badge>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }
 
 export function DeveloperWonProjects({ items, total }: Props) {
   const showAll = total > items.length;
   return (
-    <section aria-labelledby="developer-won-title" className="mt-8">
-      <h2 id="developer-won-title" className="text-lg font-semibold text-[#202522]">
-        Proyectos ganados
-      </h2>
+    <section aria-labelledby="developer-won-title" className="surface overflow-hidden">
+      <div className="flex flex-col gap-0.5 border-b border-border px-6 py-5">
+        <h2 id="developer-won-title" className="text-base font-bold text-foreground">
+          Proyectos ganados
+        </h2>
+        <span className="text-[13px] text-muted-foreground">{TRANSFER_TEST_NOTICE}</span>
+      </div>
       <p
         role="note"
-        className="mt-3 rounded-[14px] border border-[#183D30] bg-[#DCE6DE] p-3 text-sm text-[#202522]"
+        className="mx-6 mt-4 rounded-[14px] border border-primary bg-secondary p-3 text-sm text-foreground"
       >
         <strong className="font-semibold">Modo de prueba · No se mueve dinero real</strong>
       </p>
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-[#535E56]">Aún no tienes propuestas aceptadas.</p>
+        <p className="px-6 py-5 text-sm text-muted-foreground">Aún no tienes propuestas aceptadas.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-3">
-          {items.map((item) => (
-            <WonRow key={item.projectId} item={item} />
-          ))}
-        </ul>
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label="Proyectos ganados"
+          className={cn("mt-4 overflow-x-auto [&_[data-slot=table-container]]:overflow-visible", FOCUS)}
+        >
+          <Table className="min-w-[720px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={HEAD}>Proyecto</TableHead>
+                <TableHead className={HEAD}>Cliente</TableHead>
+                <TableHead className={cn(HEAD, "text-right")}>Importe</TableHead>
+                <TableHead className={HEAD}>Pago del cliente</TableHead>
+                <TableHead className={HEAD}>Transferencia</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <WonRow key={item.projectId} item={item} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
       {showAll ? (
-        <p className="mt-3 text-sm">
+        <p className="border-t border-border px-6 text-sm">
           <Link
             href="/dashboard/proposals?status=accepted"
-            className={cn("inline-flex min-h-10 items-center font-medium text-[#183D30] underline", FOCUS)}
+            className={cn("inline-flex min-h-11 items-center rounded-lg font-bold text-primary underline", FOCUS)}
           >
             Ver todas
           </Link>

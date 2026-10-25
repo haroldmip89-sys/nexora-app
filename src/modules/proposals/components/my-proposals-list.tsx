@@ -40,7 +40,7 @@ function Chip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-8 items-center rounded-full border px-3 text-sm transition-colors",
+        "inline-flex min-h-10 items-center whitespace-nowrap rounded-full border px-4 py-1.5 text-sm transition-colors",
         FOCUS,
         active
           ? "border-[#183D30] bg-[#183D30] font-medium text-white"

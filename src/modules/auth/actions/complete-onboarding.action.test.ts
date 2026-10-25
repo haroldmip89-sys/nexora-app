@@ -26,7 +26,11 @@ describe("completeOnboarding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSessionUserId.mockResolvedValue("user_1");
-    getClerkProfile.mockResolvedValue({ displayName: "Ana Perez", email: "ana@example.com" });
+    getClerkProfile.mockResolvedValue({
+      displayName: "Ana Perez",
+      email: "ana@example.com",
+      imageUrl: "https://img.clerk.com/abc",
+    });
     registerUser.mockResolvedValue({ id: "uuid", role: "client" });
   });
 
@@ -56,6 +60,7 @@ describe("completeOnboarding", () => {
       role: "developer",
       displayName: "Ana Perez",
       email: "ana@example.com",
+      imageUrl: "https://img.clerk.com/abc",
     });
   });
 

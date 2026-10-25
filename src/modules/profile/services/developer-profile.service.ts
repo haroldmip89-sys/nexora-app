@@ -28,6 +28,7 @@ export async function getOwnProfile(actor: AuthUser): Promise<OwnDeveloperProfil
   const [row] = await db
     .select({
       displayName: users.displayName,
+      imageUrl: users.imageUrl,
       headline: developerProfiles.headline,
       location: developerProfiles.location,
       availability: developerProfiles.availability,
@@ -46,6 +47,7 @@ export async function getOwnProfile(actor: AuthUser): Promise<OwnDeveloperProfil
   const hasProfile = row.profileUserId !== null;
   return {
     displayName: row.displayName,
+    imageUrl: row.imageUrl,
     headline: row.headline ?? "",
     location: row.location ?? "",
     availability: row.availability ?? "available",
@@ -109,6 +111,7 @@ export async function getPublicDeveloperProfile(
     .select({
       userId: users.id,
       displayName: users.displayName,
+      imageUrl: users.imageUrl,
       isAnonymized: sql<boolean>`${users.email} like ${"%" + DELETED_EMAIL_DOMAIN}`,
       profileUserId: developerProfiles.userId,
       headline: developerProfiles.headline,
@@ -126,11 +129,13 @@ export async function getPublicDeveloperProfile(
   if (!row) return null;
 
   const initials = getInitials(row.displayName);
+  const imageUrl = row.isAnonymized ? null : row.imageUrl;
   if (row.profileUserId === null) {
     return {
       userId: row.userId,
       displayName: row.displayName,
       initials,
+      imageUrl,
       hasProfile: false,
       headline: null,
       location: null,
@@ -160,6 +165,7 @@ export async function getPublicDeveloperProfile(
     userId: row.userId,
     displayName: row.displayName,
     initials,
+    imageUrl,
     hasProfile: true,
     headline: row.headline,
     location: row.location,

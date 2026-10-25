@@ -46,32 +46,41 @@ export function PaymentProgress({
   const currentIndex = steps.findIndex((step) => step.state === "current");
 
   return (
-    <ol aria-label="Progreso del pago" className="grid gap-2 sm:grid-cols-2">
+    <ol aria-label="Progreso del pago" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {steps.map((step, index) => (
         <li
           key={step.title}
           aria-current={index === currentIndex ? "step" : undefined}
           className={cn(
-            "flex items-start gap-3 rounded-[12px] border p-3",
+            "flex items-start gap-3 rounded-xl border p-3.5",
             step.state === "current"
-              ? "border-[#183D30] bg-[#F5F6F2]"
-              : "border-[#E3E8E3] bg-white",
+              ? "border-primary bg-surface-soft"
+              : "border-border bg-card",
           )}
         >
           <span
             aria-hidden="true"
             className={cn(
               "flex size-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold",
-              step.state === "complete" && "border-transparent bg-[#183D30] text-white",
-              step.state === "current" && "border-[#183D30] bg-white text-[#183D30]",
-              step.state === "upcoming" && "border-[#C9D1CA] bg-white text-[#535E56]",
+              step.state === "complete" && "border-transparent bg-primary text-primary-foreground",
+              step.state === "current" && "border-primary bg-card text-primary",
+              step.state === "upcoming" && "border-border bg-card text-muted-foreground",
             )}
           >
             {step.state === "complete" ? "✓" : index + 1}
           </span>
           <div className="min-w-0">
-            <p className="break-words text-sm font-medium text-[#202522]">{step.title}</p>
-            <p className="break-words text-xs text-[#535E56]">{step.note}</p>
+            <p className="break-words text-sm font-semibold text-foreground">{step.title}</p>
+            <p
+              className={cn(
+                "break-words text-xs",
+                step.state === "complete" && "text-success-fg",
+                step.state === "current" && "text-warning-fg",
+                step.state === "upcoming" && "text-muted-foreground",
+              )}
+            >
+              {step.note}
+            </p>
           </div>
         </li>
       ))}

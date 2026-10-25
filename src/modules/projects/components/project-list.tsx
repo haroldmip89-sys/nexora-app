@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PaginationNav } from "@/components/shared/pagination-nav";
 import { formatUsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ProjectLifecycleActions } from "@/modules/projects/components/project-lifecycle-actions";
@@ -61,7 +62,7 @@ function Chip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-8 items-center rounded-full border px-3 text-sm transition-colors",
+        "inline-flex min-h-10 items-center whitespace-nowrap rounded-full border px-4 py-1.5 text-sm transition-colors",
         FOCUS,
         active
           ? "border-[#183D30] bg-[#183D30] font-medium text-white"
@@ -87,7 +88,7 @@ export function ProjectList({ data, query }: Props) {
       </div>
 
       {total > 0 || filtered ? (
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
             {PROJECT_LIST_STATUSES.map((status) => (
               <Chip
@@ -99,7 +100,7 @@ export function ProjectList({ data, query }: Props) {
               </Chip>
             ))}
           </nav>
-          <nav aria-label="Ordenar" className="flex gap-2">
+          <nav aria-label="Ordenar" className="ml-auto flex flex-wrap justify-end gap-2">
             <Chip href={buildHref(query, { sort: "newest", page: 1 })} active={query.sort === "newest"}>
               Más recientes
             </Chip>
@@ -224,30 +225,7 @@ export function ProjectList({ data, query }: Props) {
         )}
       </div>
 
-      {totalPages > 1 ? (
-        <nav
-          aria-label="Paginación"
-          className="mt-6 flex items-center justify-between gap-3 text-sm text-[#535E56]"
-        >
-          {page > 1 ? (
-            <Link href={buildHref(query, { page: page - 1 })} className={cn("font-medium text-[#183D30] underline", FOCUS)}>
-              Anterior
-            </Link>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-          <span>
-            Página {page} de {totalPages}
-          </span>
-          {page < totalPages ? (
-            <Link href={buildHref(query, { page: page + 1 })} className={cn("font-medium text-[#183D30] underline", FOCUS)}>
-              Siguiente
-            </Link>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-        </nav>
-      ) : null}
+      <PaginationNav page={page} totalPages={totalPages} buildHref={(target) => buildHref(query, { page: target })} />
     </main>
   );
 }

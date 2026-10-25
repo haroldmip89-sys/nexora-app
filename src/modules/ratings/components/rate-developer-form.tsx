@@ -7,6 +7,7 @@ import { Star } from "lucide-react";
 import { buttonVariants, Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/shared/form-field";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "@/lib/utils";
 import {
   createDeveloperRatingAction,
@@ -20,7 +21,7 @@ import {
 } from "@/modules/ratings/types/rating.types";
 
 const IDLE: RatingFormState = { status: "idle" };
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 const STAR_LABELS = ["Muy malo", "Malo", "Correcto", "Bueno", "Excelente"] as const;
 const STARS = [1, 2, 3, 4, 5] as const;
 
@@ -32,7 +33,7 @@ function StarIcon({ filled }: { filled: boolean }) {
   return (
     <Star
       aria-hidden="true"
-      className={cn("size-9", filled ? "fill-[#B7791F] stroke-[#8A5A12]" : "fill-none stroke-[#9AA79D]")}
+      className={cn("size-9", filled ? "fill-star stroke-star" : "fill-none stroke-muted-foreground")}
     />
   );
 }
@@ -93,7 +94,7 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
         {state.status === "success" ? (
           <p
             role="status"
-            className="rounded-[10px] border border-[#183D30]/30 bg-[#183D30]/5 p-3 text-sm text-[#183D30]"
+            className="rounded-[10px] border border-success-border bg-success-bg p-3 text-sm text-success-fg"
           >
             Valoración publicada.
           </p>
@@ -101,7 +102,7 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
       </div>
 
       <fieldset className="m-0 border-0 p-0">
-        <legend className="mb-2 text-[15px] font-semibold text-[#202522]">Valoración general</legend>
+        <legend className="mb-2 text-[15px] font-semibold text-foreground">Valoración general</legend>
         <input type="hidden" name="rating" value={rating || ""} />
         <div className="flex flex-wrap items-center gap-1">
           {STARS.map((n) => (
@@ -122,7 +123,7 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
               <StarIcon filled={n <= rating} />
             </button>
           ))}
-          <p aria-live="polite" className="ml-2.5 text-base font-semibold text-[#183D30]">
+          <p aria-live="polite" className="ml-2.5 text-base font-semibold text-primary">
             {ratingText(rating)}
           </p>
         </div>
@@ -150,12 +151,12 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
             placeholder="Qué funcionó bien, qué mejorarías…"
             aria-invalid={invalid}
             aria-describedby={describedBy}
-            className="rounded-[10px] border-[#C9D1CA] bg-white text-[#202522]"
+            className="rounded-[10px] border-input bg-card text-foreground"
           />
         )}
       </FormField>
 
-      <div className="rounded-xl bg-[#F5F6F2] p-4 text-[13px] leading-relaxed text-[#202522]">
+      <div className="rounded-xl bg-surface-subtle p-4 text-[13px] leading-relaxed text-foreground">
         <p className="mb-1.5 font-semibold">Antes de enviar</p>
         <ul className="list-disc pl-[18px]">
           <li>Una valoración por proyecto contratado.</li>
@@ -166,7 +167,7 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
         </ul>
       </div>
 
-      {isEdit ? <p className="text-sm text-[#535E56]">{daysText(existing.daysLeft)}</p> : null}
+      {isEdit ? <p className="text-sm text-muted-foreground">{daysText(existing.daysLeft)}</p> : null}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Link
@@ -178,7 +179,7 @@ function RatingForm({ projectId, developerName, previewName, existing }: FormPro
         <Button
           type="submit"
           disabled={pending}
-          className="min-h-11 rounded-[10px] bg-[#183D30] px-5 text-white hover:bg-[#183D30]/90"
+          className="min-h-11 rounded-[10px] px-5"
         >
           {pending
             ? isEdit
@@ -198,32 +199,35 @@ export function RateDeveloperForm({ view }: { view: ProjectRatingView }) {
   const readOnly = rating !== null && !rating.canEdit;
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6">
-      <div className="flex flex-col gap-5 rounded-2xl border border-[#E3E8E3] bg-white p-5 sm:p-7">
-        <div className="min-w-0">
-          <p className="break-words text-[13px] text-[#535E56]">
-            Proyecto contratado · {view.project.title}
-          </p>
-          <h1 className="mt-0.5 break-words text-2xl font-semibold leading-tight text-[#202522]">
-            ¿Cómo fue trabajar con {view.developerName}?
-          </h1>
+    <main className="mx-auto w-full max-w-180 flex-1 px-4 py-8 sm:px-6">
+      <div className="surface flex flex-col gap-5 p-5 sm:p-7">
+        <div className="flex flex-wrap items-center gap-3.5">
+          <UserAvatar name={view.developerName} imageUrl={view.developerImageUrl} size="lg" />
+          <div className="min-w-0">
+            <p className="break-words text-[13px] text-muted-foreground">
+              Proyecto contratado · {view.project.title}
+            </p>
+            <h1 className="mt-0.5 break-words text-[26px] leading-tight font-extrabold text-foreground">
+              ¿Cómo fue trabajar con {view.developerName}?
+            </h1>
+          </div>
         </div>
 
         {readOnly ? (
           <div className="flex flex-col gap-4">
             <div>
-              <p className="mb-2 text-[15px] font-semibold text-[#202522]">Valoración general</p>
+              <p className="mb-2 text-[15px] font-semibold text-foreground">Valoración general</p>
               <div className="flex flex-wrap items-center gap-2.5">
                 <ReadOnlyStars value={rating.rating} />
-                <p className="text-base font-semibold text-[#183D30]">{ratingText(rating.rating)}</p>
+                <p className="text-base font-semibold text-primary">{ratingText(rating.rating)}</p>
               </div>
             </div>
             {rating.comment ? (
-              <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-[#202522]">
+              <p className="whitespace-pre-line break-words text-[15px] leading-relaxed text-foreground">
                 {rating.comment}
               </p>
             ) : null}
-            <p className="text-sm text-[#535E56]">Ya no puedes editarla.</p>
+            <p className="text-sm text-muted-foreground">Ya no puedes editarla.</p>
             <div>
               <Link
                 href="/dashboard/projects"

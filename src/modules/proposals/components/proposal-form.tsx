@@ -18,7 +18,7 @@ import type {
 } from "@/modules/proposals/types/proposal.types";
 
 const IDLE: ProposalFormState = { status: "idle" };
-const CONTROL = "h-10 rounded-[10px] border-[#E3E8E3] bg-white text-[#202522]";
+const CONTROL = "h-11 rounded-[10px] border-input bg-card text-foreground";
 
 type Props =
   | {
@@ -68,7 +68,7 @@ export function ProposalForm(props: Props) {
         {state.status === "error" && state.message ? (
           <p
             role="alert"
-            className="rounded-[10px] border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            className="rounded-[10px] border border-danger-border bg-danger-bg p-3 text-sm text-danger-fg"
           >
             {state.message}
           </p>
@@ -76,6 +76,9 @@ export function ProposalForm(props: Props) {
       </div>
 
       <Fragment key={fieldsKey}>
+      <fieldset className="flex flex-col gap-4 rounded-[10px] border border-border bg-surface-subtle p-4 sm:p-5">
+      <legend className="px-1 text-base font-semibold text-foreground">Tu oferta</legend>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <FormField
         name="priceUsd"
         label="Precio (USD)"
@@ -116,6 +119,8 @@ export function ProposalForm(props: Props) {
           />
         )}
       </FormField>
+      </div>
+      </fieldset>
 
       <FormField
         name="description"
@@ -137,7 +142,7 @@ export function ProposalForm(props: Props) {
       </FormField>
 
       {props.mode === "create" ? (
-        <p className="text-xs text-[#535E56]">
+        <p className="text-xs text-muted-foreground">
           Podrás editarla mientras esté pendiente. Si la retiras, no podrás enviar otra a este
           proyecto.
         </p>
@@ -152,7 +157,7 @@ export function ProposalForm(props: Props) {
             variant="outline"
             disabled={pending}
             onClick={props.onDone}
-            className="h-10 rounded-[10px] px-4"
+            className="h-11 rounded-[10px] px-4"
           >
             Cancelar
           </Button>
@@ -160,7 +165,7 @@ export function ProposalForm(props: Props) {
         <Button
           type="submit"
           disabled={pending}
-          className="h-10 rounded-[10px] bg-[#183D30] px-4 text-white hover:bg-[#183D30]/90"
+          className="h-11 rounded-[10px] bg-primary px-4 text-primary-foreground hover:bg-primary-hover"
         >
           {pending
             ? "Guardando..."

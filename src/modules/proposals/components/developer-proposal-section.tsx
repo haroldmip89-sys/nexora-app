@@ -7,15 +7,16 @@ import { ProposalForm } from "@/modules/proposals/components/proposal-form";
 import { getMyProposalForProject, hasActivePayouts } from "@/modules/proposals/services/proposal.service";
 import type { DeveloperProposal } from "@/modules/proposals/types/proposal.types";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 
 function Note({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-[#535E56]">{children}</p>;
+  return <p className="surface p-5 text-sm text-muted-foreground">{children}</p>;
 }
 
 /**
- * Developer branch of the public detail CTA: create form or own proposal.
- * Never breaks the public page: unexpected failures degrade to a note.
+ * Developer proposal section of the public detail (main column): create form
+ * or own proposal. Never breaks the public page: unexpected failures degrade
+ * to a note.
  */
 export async function DeveloperProposalSection({ projectId }: { projectId: string }) {
   let proposal: DeveloperProposal | null = null;
@@ -38,16 +39,20 @@ export async function DeveloperProposalSection({ projectId }: { projectId: strin
   }
 
   return (
-    <section id="propuesta" aria-labelledby="propuesta-title" className="flex flex-col gap-4">
-      <h2 id="propuesta-title" className="text-base font-semibold text-[#202522]">
+    <section
+      id="propuesta"
+      aria-labelledby="propuesta-title"
+      className="surface flex scroll-mt-24 flex-col gap-4 p-5 sm:p-8"
+    >
+      <h2 id="propuesta-title" className="text-xl font-extrabold text-foreground">
         {proposal ? "Tu propuesta" : "Enviar una propuesta"}
       </h2>
       {proposal ? (
         <OwnProposalCard proposal={proposal} />
       ) : !payoutsReady ? (
-        <p className="rounded-[10px] bg-[#DCE6DE] p-3 text-sm text-[#183D30]">
+        <p className="rounded-[10px] border border-warning-border bg-warning-bg p-3 text-sm text-warning-fg">
           Para enviar propuestas debes configurar tus cobros de prueba.{" "}
-          <Link href="/dashboard/payouts" className={`rounded-sm font-medium underline ${FOCUS}`}>
+          <Link href="/dashboard/payouts" className={`rounded-sm font-bold underline ${FOCUS}`}>
             Configurar cobros de prueba
           </Link>
         </p>
@@ -56,7 +61,7 @@ export async function DeveloperProposalSection({ projectId }: { projectId: strin
       )}
       <Link
         href="/dashboard/proposals"
-        className={`w-fit rounded-sm text-sm font-medium text-[#183D30] underline ${FOCUS}`}
+        className={`inline-flex min-h-11 w-fit items-center rounded-sm text-sm font-bold text-primary underline ${FOCUS}`}
       >
         Mis propuestas
       </Link>

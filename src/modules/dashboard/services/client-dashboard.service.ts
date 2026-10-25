@@ -72,6 +72,7 @@ export async function getClientDashboard(actor: AuthUser): Promise<ClientDashboa
         status: projects.status,
         developerId: proposals.developerId,
         developerName: users.displayName,
+        imageUrl: users.imageUrl,
         amountCents: proposals.priceCents,
       })
       .from(projects)
@@ -151,6 +152,7 @@ export async function getClientDashboard(actor: AuthUser): Promise<ClientDashboa
       status: row.status as DashboardProjectPayment["status"],
       developerId: row.developerId,
       developerName: row.developerName,
+      imageUrl: row.imageUrl,
       amountCents: row.amountCents,
       payment: attempt ? { status: attempt.status, updatedAt: attempt.updatedAt } : null,
       transfer: transfer ? { status: transfer.status, completedAt: transfer.completedAt } : null,

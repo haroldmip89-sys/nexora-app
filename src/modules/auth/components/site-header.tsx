@@ -3,7 +3,15 @@ import Link from "next/link";
 import { SiteNav } from "@/components/shared/site-nav";
 import { getAccountLink, getDashboardLink } from "@/modules/auth/services/dashboard-link";
 import type { NavLinkItem } from "@/modules/auth/services/dashboard-link";
+import { getHomeCta } from "@/modules/auth/services/home-cta";
 import { resolveNavViewer } from "@/modules/auth/services/nav-viewer.service";
+
+const HOME_ANCHORS: NavLinkItem[] = [
+  { href: "/#proyectos", label: "Explorar proyectos" },
+  { href: "/#como-funciona", label: "Cómo funciona" },
+  { href: "/#desarrolladores", label: "Para desarrolladores" },
+  { href: "/#preguntas", label: "Preguntas" },
+];
 
 /** Resolves the viewer on the server and hands serializable props to the client nav. */
 export async function SiteHeader() {
@@ -15,13 +23,20 @@ export async function SiteHeader() {
   const account = getAccountLink(viewer);
   if (account) links.push(account);
 
-  return <SiteNav links={links} signedIn={viewer.kind !== "visitor"} />;
+  return (
+    <SiteNav
+      links={links}
+      signedIn={viewer.kind !== "visitor"}
+      homeAnchors={HOME_ANCHORS}
+      homeCta={getHomeCta(viewer)}
+    />
+  );
 }
 
 /** Static placeholder (logo only, same height) shown while the header streams in. */
 export function SiteHeaderFallback() {
   return (
-    <header className="border-b border-border bg-card">
+    <header className="sticky top-0 z-40 border-b border-border bg-card">
       <div className="mx-auto flex w-full max-w-page items-center gap-1 px-3 py-2 sm:gap-2 sm:px-6">
         <Link
           href="/"

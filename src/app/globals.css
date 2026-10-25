@@ -191,6 +191,10 @@
       scroll-behavior: smooth;
     }
   }
+  /* Sticky header (4.5rem): anchor targets must not hide under it. */
+  html {
+    scroll-padding-top: 5rem;
+  }
 }
 
 @utility surface {

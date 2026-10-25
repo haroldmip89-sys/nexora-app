@@ -1,6 +1,6 @@
 # Rediseño visual, fase D: perfil público, "Mi cuenta", detalle y editor de proyecto, formulario de propuesta y valoración
 
-Estado: borrador
+Estado: done
 
 Spec 022d. **Depende de 022a** (tokens, fuente, `surface`, `max-w-page`, controles `ui/**`, `InitialsAvatar`, header y footer globales): no se implementa hasta que 022a esté `done`. Es independiente de 022b y 022c (archivos disjuntos; solo comparten `docs/MANUAL-TESTS.md`, ver "Tareas"). Una salvedad de contrato: 022c consume `RatingStars` (API sin cambios) y esta fase solo cambia su aspecto.
 

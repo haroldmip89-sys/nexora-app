@@ -1,6 +1,6 @@
 # Rediseño visual, fase C: paneles (cliente y desarrollador), página de pago y tabla de propuestas
 
-Estado: borrador
+Estado: done
 
 Spec 022c. **Depende de 022a** (tokens, fuente, `surface`, `max-w-page`, variantes de `badge` y `button`, `InitialsAvatar`, header y footer globales): no se implementa hasta que 022a esté `done`. Es independiente de 022b y 022d (archivos disjuntos; solo comparten `docs/MANUAL-TESTS.md`, ver "Tareas").
 
@@ -227,9 +227,9 @@ Máximo 5. Durante el bloque paralelo (T1, T2 y T3) nadie corre `npm install` ni
 - Depende de: T1, T2, T3
 - Paralelizable: no
 - Cubre: AC11, AC13 (verificación manual)
-- Detalle: sección nueva "8o. Spec 022c — Paneles, pago y propuestas" (texto abajo) antes de la 9, tras las secciones de 022a/022b si existen; actualizar `**Cubre:**`. Solo se añade o reemplaza lo indicado: el árbol tiene cambios sin commitear en `MANUAL-TESTS.md`.
+- Detalle: sección nueva "8p. Spec 022c — Paneles, pago y propuestas" (texto abajo) antes de la 9, tras las secciones de 022a/022b si existen; actualizar `**Cubre:**`. Solo se añade o reemplaza lo indicado: el árbol tiene cambios sin commitear en `MANUAL-TESTS.md`.
 
-### Lista manual (texto para `docs/MANUAL-TESTS.md`, "8o. Spec 022c")
+### Lista manual (texto para `docs/MANUAL-TESTS.md`, "8p. Spec 022c")
 
 Compara con `docs/assets/3-paneles/Main.dc.html`, `DeveloperDashboard.dc.html`, `Payment.dc.html` y `Proposals.dc.html` a **1440 px** y **390 px**. Todo es de prueba. Cuentas: Cliente C (con proyectos en todos los estados), Desarrollador A, Desarrollador B, Administrador.
 

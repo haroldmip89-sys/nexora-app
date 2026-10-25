@@ -76,7 +76,29 @@ describe("getClerkProfile", () => {
       username: null,
       primaryEmailAddress: { emailAddress: "ada@x.com" },
     });
-    expect(await getClerkProfile()).toEqual({ displayName: "Ada Lovelace", email: "ada@x.com" });
+    expect(await getClerkProfile()).toEqual({
+      displayName: "Ada Lovelace",
+      email: "ada@x.com",
+      imageUrl: null,
+    });
+  });
+
+  it("returns the normalized image URL when the user has an image", async () => {
+    currentUser.mockResolvedValue({
+      firstName: "Ada",
+      primaryEmailAddress: { emailAddress: "ada@x.com" },
+      imageUrl: "https://img.clerk.com/abc",
+      hasImage: true,
+    });
+    expect((await getClerkProfile())?.imageUrl).toBe("https://img.clerk.com/abc");
+  });
+
+  it("returns null imageUrl when hasImage is false or the host is not allowed", async () => {
+    const base = { firstName: "Ada", primaryEmailAddress: { emailAddress: "ada@x.com" } };
+    currentUser.mockResolvedValue({ ...base, imageUrl: "https://img.clerk.com/abc", hasImage: false });
+    expect((await getClerkProfile())?.imageUrl).toBeNull();
+    currentUser.mockResolvedValue({ ...base, imageUrl: "https://evil.com/abc", hasImage: true });
+    expect((await getClerkProfile())?.imageUrl).toBeNull();
   });
 
   it("returns null without user or primary email", async () => {

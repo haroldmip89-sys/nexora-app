@@ -7,98 +7,110 @@ import {
 } from "@/modules/projects/components/public-project-card";
 import { ProposalCta } from "@/modules/projects/components/proposal-cta";
 import type { PublicProject, PublicViewer } from "@/modules/projects/types/public-project.types";
+import { DeveloperProposalSection } from "@/modules/proposals/components/developer-proposal-section";
 
 type Props = { project: PublicProject; viewer: PublicViewer };
 
+const DT = "text-[11px] font-bold uppercase tracking-wider text-muted-foreground";
+const PILL = "max-w-full break-words rounded-full px-2.5 py-1 text-xs font-bold";
+
 /** Public project detail. Renders content only: the page provides `<main>`. */
 export function PublicProjectDetail({ project, viewer }: Props) {
+  const isDeveloper = viewer.kind === "user" && viewer.role === "developer";
+
   return (
     <article className="flex flex-col gap-6">
       <Link
         href="/projects"
         className={cn(
-          "inline-flex min-h-11 w-fit items-center rounded-sm text-sm font-medium text-[#183D30] underline",
-          "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40",
+          "inline-flex min-h-11 w-fit items-center rounded-sm text-sm font-bold text-primary underline",
+          "outline-none focus-visible:ring-3 focus-visible:ring-ring/40",
         )}
       >
         ← Volver a proyectos
       </Link>
 
       <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          <span className="max-w-full break-words rounded-full bg-[#DCE6DE] px-2.5 py-1 font-medium text-[#183D30]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className={cn(PILL, "border border-chip-border bg-chip text-primary")}>
             {project.category}
           </span>
+          <span className={cn(PILL, "bg-success-bg text-success-fg")}>Publicado</span>
           {project.publishedAt ? (
-            <time dateTime={project.publishedAt.toISOString()} className="text-[#535E56]">
+            <time
+              dateTime={project.publishedAt.toISOString()}
+              className="text-xs text-muted-foreground"
+            >
               Publicado el {PUBLIC_DATE_FORMATTER.format(project.publishedAt)}
             </time>
           ) : null}
         </div>
-        <h1 className="break-words text-2xl font-semibold tracking-tight text-[#202522] sm:text-3xl">
+        <h1 className="break-words text-[32px] font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl">
           {project.title}
         </h1>
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <aside
-          aria-label="Resumen del proyecto"
-          className="flex flex-col gap-5 rounded-[14px] border border-[#E3E8E3] bg-white p-4 sm:p-5 lg:order-2"
+          aria-labelledby="project-details"
+          className="surface flex flex-col gap-5 p-5 lg:order-2"
         >
-          <dl className="flex flex-col gap-3 text-sm">
-            <div>
-              <dt className="text-xs text-[#535E56]">Presupuesto</dt>
-              <dd className="text-lg font-semibold text-[#202522]">
+          <h2 id="project-details" className="text-lg font-semibold text-foreground">
+            Detalles
+          </h2>
+          <dl className="flex flex-col gap-4 text-sm">
+            <div className="flex flex-col gap-0.5">
+              <dt className={DT}>Presupuesto</dt>
+              <dd className="text-lg font-semibold text-foreground">
                 {formatBudgetRange(project.budgetMinCents, project.budgetMaxCents)}
               </dd>
             </div>
-            <div>
-              <dt className="text-xs text-[#535E56]">Plazo</dt>
-              <dd className="text-[#202522]">{project.timelineWeeks} semanas</dd>
+            <div className="flex flex-col gap-0.5">
+              <dt className={DT}>Plazo</dt>
+              <dd className="text-foreground">{project.timelineWeeks} semanas</dd>
             </div>
-            <div>
-              <dt className="text-xs text-[#535E56]">Categoría</dt>
-              <dd className="break-words text-[#202522]">{project.category}</dd>
+            <div className="flex flex-col gap-0.5">
+              <dt className={DT}>Categoría</dt>
+              <dd className="break-words text-foreground">{project.category}</dd>
             </div>
+            {project.technologies.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <dt className={DT}>Tecnologías</dt>
+                <dd>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {project.technologies.map((tech) => (
+                      <li
+                        key={tech}
+                        className={cn(PILL, "border border-chip-border bg-chip text-primary")}
+                      >
+                        {tech}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ) : null}
           </dl>
-          <div className="border-t border-[#E3E8E3] pt-4">
+          <div className="border-t border-divider pt-4">
             <ProposalCta projectId={project.id} viewer={viewer} />
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-col gap-6 lg:order-1">
-          <section aria-labelledby="project-description">
-            <h2 id="project-description" className="text-lg font-semibold text-[#202522]">
-              Descripción
-            </h2>
-            <div className="mt-2 overflow-hidden rounded-[14px] border border-[#E3E8E3] bg-white">
-              <div className="flex items-center justify-between border-b border-[#E3E8E3] bg-[#F0F2EC] px-4 py-2">
-                <span className="text-xs font-medium text-[#535E56]">Markdown</span>
-              </div>
-              <MarkdownContent
-                source={project.description}
-                className="px-4 py-3 text-sm sm:px-5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-              />
+          <section aria-labelledby="project-description" className="surface overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border bg-surface-subtle px-5 py-3 sm:px-8">
+              <h2 id="project-description" className="text-base font-semibold text-foreground">
+                Descripción
+              </h2>
+              <span className="font-mono text-xs text-muted-foreground">Markdown</span>
             </div>
+            <MarkdownContent
+              source={project.description}
+              className="px-6 py-6 sm:px-8 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+            />
           </section>
 
-          {project.technologies.length > 0 ? (
-            <section aria-labelledby="project-technologies">
-              <h2 id="project-technologies" className="text-lg font-semibold text-[#202522]">
-                Tecnologías
-              </h2>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {project.technologies.map((tech) => (
-                  <li
-                    key={tech}
-                    className="max-w-full break-words rounded-full bg-[#DCE6DE] px-3 py-1 text-sm text-[#183D30]"
-                  >
-                    {tech}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          {isDeveloper ? <DeveloperProposalSection projectId={project.id} /> : null}
         </div>
       </div>
     </article>

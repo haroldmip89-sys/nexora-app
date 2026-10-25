@@ -1,7 +1,8 @@
 import "server-only";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { normalizeClerkImageUrl } from "@/lib/clerk-image";
 
-export type ClerkProfile = { displayName: string; email: string };
+export type ClerkProfile = { displayName: string; email: string; imageUrl: string | null };
 
 type NameParts = {
   firstName?: string | null;
@@ -52,5 +53,6 @@ export async function getClerkProfile(): Promise<ClerkProfile | null> {
       username: user.username,
       email,
     }),
+    imageUrl: normalizeClerkImageUrl(user.imageUrl, user.hasImage),
   };
 }

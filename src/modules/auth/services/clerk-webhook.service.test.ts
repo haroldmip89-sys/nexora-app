@@ -7,10 +7,11 @@ vi.mock("@clerk/nextjs/server", () => ({ auth: vi.fn(), currentUser: vi.fn() }))
 vi.mock("@/modules/users/services/users.service", () => ({
   syncProfile: vi.fn(),
   anonymizeByClerkUserId: vi.fn(),
+  syncImageUrl: vi.fn(),
 }));
 
 import { handleClerkEvent } from "@/modules/auth/services/clerk-webhook.service";
-import { anonymizeByClerkUserId, syncProfile } from "@/modules/users/services/users.service";
+import { anonymizeByClerkUserId, syncImageUrl, syncProfile } from "@/modules/users/services/users.service";
 
 const asEvent = (e: unknown) => e as WebhookEvent;
 
@@ -59,6 +60,49 @@ describe("handleClerkEvent", () => {
     await handleClerkEvent(updated({ primary_email_address_id: null }));
     await handleClerkEvent(updated({ email_addresses: [] }));
     expect(syncProfile).not.toHaveBeenCalled();
+  });
+
+  describe("photo sync", () => {
+    const URL_OK = "https://img.clerk.com/abc";
+
+    it("syncs the normalized URL when has_image is true", async () => {
+      await handleClerkEvent(updated({ image_url: URL_OK, has_image: true }));
+      expect(syncImageUrl).toHaveBeenCalledWith("user_1", URL_OK);
+    });
+
+    it("clears the photo when has_image is false", async () => {
+      await handleClerkEvent(updated({ image_url: URL_OK, has_image: false }));
+      expect(syncImageUrl).toHaveBeenCalledWith("user_1", null);
+    });
+
+    it("clears the photo when the host is not allowed", async () => {
+      await handleClerkEvent(updated({ image_url: "https://evil.com/x", has_image: true }));
+      expect(syncImageUrl).toHaveBeenCalledWith("user_1", null);
+    });
+
+    it("syncs the photo even without a primary email", async () => {
+      await handleClerkEvent(
+        updated({ primary_email_address_id: null, image_url: URL_OK, has_image: true }),
+      );
+      expect(syncImageUrl).toHaveBeenCalledWith("user_1", URL_OK);
+      expect(syncProfile).not.toHaveBeenCalled();
+    });
+
+    it("never logs the URL", async () => {
+      const spies = [
+        vi.spyOn(console, "error").mockImplementation(() => {}),
+        vi.spyOn(console, "warn").mockImplementation(() => {}),
+        vi.spyOn(console, "log").mockImplementation(() => {}),
+      ];
+      await handleClerkEvent(updated({ image_url: URL_OK, has_image: true }));
+      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+      vi.restoreAllMocks();
+    });
+  });
+
+  it("does not touch the photo on user.deleted", async () => {
+    await handleClerkEvent(asEvent({ type: "user.deleted", data: { id: "user_1", deleted: true } }));
+    expect(syncImageUrl).not.toHaveBeenCalled();
   });
 
   it("anonymizes on user.deleted", async () => {

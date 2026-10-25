@@ -17,6 +17,7 @@ function item(
     status,
     developerId: "d1",
     developerName: "Dana",
+    imageUrl: null,
     amountCents: 1000,
     payment: attempt ? { status: attempt, updatedAt: new Date() } : null,
     transfer: null,

@@ -22,6 +22,7 @@ export async function registerUser(input: {
   role: "client" | "developer";
   displayName: string;
   email: string;
+  imageUrl?: string | null;
 }): Promise<AuthUserRow> {
   const [inserted] = await db
     .insert(users)
@@ -30,6 +31,8 @@ export async function registerUser(input: {
       role: input.role,
       displayName: input.displayName,
       email: input.email,
+      // Data minimization (023 D2): only developers have a stored photo URL.
+      imageUrl: input.role === "developer" ? (input.imageUrl ?? null) : null,
     })
     .onConflictDoNothing({ target: users.clerkUserId })
     .returning();
@@ -56,6 +59,23 @@ export async function syncProfile(
     );
 }
 
+/**
+ * Sets (or clears with null) the photo URL copy. Developers only; no-op when the row is missing
+ * or anonymized. The caller must pass a value already normalized by normalizeClerkImageUrl.
+ */
+export async function syncImageUrl(clerkUserId: string, imageUrl: string | null): Promise<void> {
+  await db
+    .update(users)
+    .set({ imageUrl })
+    .where(
+      and(
+        eq(users.clerkUserId, clerkUserId),
+        eq(users.role, "developer"),
+        not(sql`${users.email} like ${"%" + DELETED_EMAIL_DOMAIN}`),
+      ),
+    );
+}
+
 /** Idempotent anonymization (keeps id, clerk_user_id, role and relations). */
 export async function anonymizeByClerkUserId(clerkUserId: string): Promise<void> {
   await db
@@ -63,6 +83,7 @@ export async function anonymizeByClerkUserId(clerkUserId: string): Promise<void>
     .set({
       displayName: DELETED_DISPLAY_NAME,
       email: sql`${users.id}::text || ${DELETED_EMAIL_DOMAIN}`,
+      imageUrl: null,
     })
     .where(eq(users.clerkUserId, clerkUserId));
 }

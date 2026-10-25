@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 011a, 011c, 012, 013, 017, 018, 019 y 022a (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 011c, 012, 013, 017, 018, 019, 022a, 022b, 022c, 022d, 022e y 023 (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -534,6 +534,89 @@ Compara cada punto con `docs/assets/3-paneles/Main.dc.html` (header) a **1440 px
 - [ ] (i) **Sin regresiones funcionales:** los avisos de `LiveAnnouncer` (014) siguen apareciendo encima del footer; ningún dashboard, formulario ni diálogo pierde función (solo cambian color y tipografía hasta las fases B-D).
 - [ ] (j) **Consola:** sin violaciones nuevas de CSP (Report-Only) ni advertencias de `next/image`.
 
+## 8n. Spec 022b — Landing y listado de proyectos
+
+Compara con `docs/assets/2-landing/Main.dc.html` y `docs/assets/3-paneles/Projects.dc.html` a **1440 px** y **390 px**. Cuentas: visitante (incógnito), Cliente, Desarrollador A, y (opcional) Administrador. Prepara al menos 8 proyectos publicados con tecnologías distintas y uno en borrador.
+
+- [ ] (a) **Landing visitante:** `/` muestra hero, proyectos publicados, cómo funciona, por qué Nexora, para desarrolladores, preguntas, llamada final y footer; un solo `h1`; las 3 fotos cubren de fondo toda la sección hero (casi transparentes bajo el texto, más visibles hacia la derecha), cambian cada 3 s, se pausa con el cursor, el foco y el botón "Pausar carrusel", y queda fijo con "reducir movimiento" activo (corrección posterior a 022b: sustituyó a la vista previa "Ejemplo ilustrativo").
+- [ ] (b) **Proyectos reales:** la sección muestra exactamente los 6 publicados más recientes (compara con `/projects`); el borrador y los cerrados no aparecen; con 0 publicados aparece el estado vacío.
+- [ ] (c) **Enlaces:** "Ver todos los proyectos" -> `/projects`; cada categoría -> `/projects?category=...` con el filtro aplicado; "Todos" -> `/projects`; "Ver detalle" abre el proyecto.
+- [ ] (d) **Enviar propuesta:** visitante -> `/sign-in` (tras entrar como desarrollador vuelve al proyecto); desarrollador -> detalle del proyecto con la sección "Enviar una propuesta" visible; cliente: no hay botón; cuenta sin rol: "Completar registro".
+- [ ] (e) **Header en `/`:** anclas "Explorar proyectos · Cómo funciona · Para desarrolladores · Preguntas" desplazan a su sección (suave; sin movimiento con "reducir movimiento" activo); visitante ve "Iniciar sesión" y "Publicar proyecto"; Cliente/Desarrollador ven "Ir a mi panel" (-> `/dashboard`) y el avatar; sin rol, "Completar registro"; admin ninguno. En otras páginas el header es el normal.
+- [ ] (f) **Cuerpo con sesión:** con sesión los botones "Publicar un proyecto"/"Crear cuenta gratis"/"Crear perfil de desarrollador" pasan a "Ir a mi panel"; "Soy desarrollador"/"Ver proyectos"/"Explorar proyectos" siguen yendo a `#proyectos`.
+- [ ] (g) **Cómo funciona:** pestañas "Para clientes"/"Para desarrolladores" cambian el contenido; navegables con flechas y Tab; anunciadas como pestañas por el lector de pantalla.
+- [ ] (h) **Preguntas:** cada `details` abre/cierra con Enter/Espacio y tiene foco visible.
+- [ ] (i) **`/projects`:** franja verde con título y buscador; buscar "react" mantiene los filtros que tenías; aplicar filtros mantiene la búsqueda; categoría, presupuesto, plazo, orden, tecnologías (hasta 5), "Aplicar", "Limpiar" y paginación funcionan igual que antes; con JavaScript deshabilitado también.
+- [ ] (j) **Tarjetas:** toda la tarjeta es clicable y por teclado el foco visible va al título; en el landing los dos botones de la tarjeta son clicables y accesibles con Tab.
+- [ ] (k) **Responsive:** a 390 px no hay scroll horizontal en `/` ni en `/projects`; el CTA del header va dentro del menú; panel de filtros arriba de los resultados.
+- [ ] (l) **Teclado y foco:** recorrido completo con Tab (header, hero, tarjetas, pestañas, preguntas, footer) con foco visible y objetivos >= 44 px.
+- [ ] (m) **Fallo del catálogo:** con `DATABASE_URL` inválida temporalmente el landing carga y la sección de proyectos muestra "No pudimos cargar los proyectos" con "Reintentar".
+- [ ] (n) **Plantilla fuera:** `/` ya no muestra "To get started, edit the page.tsx"; `public/` ya no contiene los SVG de Next.
+
+## 8o. Spec 022e — Login y registro a pantalla dividida
+
+Cuentas: visitante (incógnito) y una cuenta de prueba de Clerk (Test Mode). Probar a **1440 px** y **390 px** (modo dispositivo de DevTools).
+
+- [ ] (a) **1440 px, `/sign-in` y `/sign-up`:** dos mitades iguales; izquierda, carrusel; derecha, formulario de Clerk fundido con el panel (sin tarjeta con sombra), botón primario verde `#183D30`, tipografía Plus Jakarta Sans, esquinas de 10 px; header y footer visibles, con el chip "Modo de prueba".
+- [ ] (b) **Carrusel:** cada 3 s la imagen se desliza hacia la izquierda; las tres imágenes rotan en bucle sin parpadeo ni retroceso al dar la vuelta.
+- [ ] (c) **Pausa:** el ratón sobre el carrusel lo detiene y al salir se reanuda; "Pausar carrusel" lo detiene y el botón pasa a "Reproducir carrusel"; el botón se alcanza con Tab, se activa con Enter/Espacio, mide >= 44 px y muestra foco.
+- [ ] (d) **Reduced-motion:** activar "Reducir movimiento" en el SO (o Rendering -> Emulate `prefers-reduced-motion: reduce` en DevTools) y recargar: imagen estática, sin avance, sin botón de pausa.
+- [ ] (e) **Teclado y foco:** Tab recorre header, campos, botón primario y enlace "Sign up"/"Sign in" del pie de Clerk con foco visible y orden lógico; cada control mide >= 44 px; el foco nunca queda atrapado en el carrusel.
+- [ ] (f) **390 px:** el carrusel no se ve; el formulario ocupa todo el ancho útil; sin scroll horizontal (también a 320 px); Network no descarga `/auth/*` ni `/_next/image` de `login-*`.
+- [ ] (g) **Flujo real login:** desde el landing/Proyectos, "Iniciar sesión" -> `/sign-in?redirect_url=...` -> iniciar sesión con la cuenta de prueba vuelve a la página de origen; sin sesión previa, redirige según las variables de entorno (comportamiento igual que antes de 022e).
+- [ ] (h) **Flujo real registro:** crear una cuenta de prueba en `/sign-up` -> llega a `/onboarding` (elegir rol) y de ahí al panel, sin errores.
+- [ ] (i) **Consola y red:** sin violaciones nuevas de CSP (Report-Only), sin advertencias de `next/image` ni errores de hidratación; las imágenes vienen del propio origen.
+- [ ] (j) **Límites conocidos:** el formulario de Clerk está en inglés (decisión documentada, P3) y puede mostrar "Secured by Clerk"/"Development mode" según la instancia.
+
+- [ ] **Header y footer en el acceso (corrección posterior):** en `/sign-in` y `/sign-up` el header solo tiene el logo y el chip "Modo de prueba" (sin enlaces, "Registrarse" ni menú) y no hay footer; en el resto de páginas el header y el footer son los normales.
+
+## 8p. Spec 022c — Paneles, pago y propuestas
+
+Compara con `docs/assets/3-paneles/Main.dc.html`, `DeveloperDashboard.dc.html`, `Payment.dc.html` y `Proposals.dc.html` a **1440 px** y **390 px**. Todo es de prueba. Cuentas: Cliente C (con proyectos en todos los estados), Desarrollador A, Desarrollador B, Administrador.
+
+- [ ] (a) **Panel del cliente:** "Hola, {tu nombre}"; 5 tarjetas por estado con conteos correctos y enlaces `?status=` que abren la lista filtrada; "Acciones pendientes" con "Elegir propuesta (N)", "Pagar (prueba)", "Continuar o cancelar el pago" y "Valorar al desarrollador" llevando a las mismas pantallas que antes.
+- [ ] (b) **En contratación:** la tabla muestra desarrollador (enlace al perfil en pestaña nueva), importe, pago y transferencia; con pago `pending` aparece "Cancelar pago de prueba" y su diálogo (foco inicial en "Volver"); la transferencia dice "Transferencia de prueba, no es dinero real" y nunca "recibida"; con más de 20 aparece "Ver todos".
+- [ ] (c) **Panel del desarrollador:** tarjeta de cobros (estado, "Última consulta a Stripe", enlace correcto), valoración media con estrellas (o "Aún sin valoraciones"), 4 propuestas por estado con enlace `?status=`, acciones (reintentar transferencia, esperando pago "Informativa", configurar cobros) y tabla de proyectos ganados; "Ver mi perfil público" abre `/developers/{tu id}`.
+- [ ] (d) **Estados vacíos:** cliente sin proyectos ("Aún no tienes proyectos" + "Crear tu primer proyecto"), desarrollador sin propuestas ("Aún no has enviado propuestas"), "No tienes nada pendiente.".
+- [ ] (e) **Roles:** un administrador recibe 404 en `/dashboard`; sin sesión redirige a `/sign-in`; el Desarrollador B no ve datos del A.
+- [ ] (f) **Pago:** migas "Mi panel / proyecto / Pago de prueba"; con proyecto en `proposal_selected` sin intento, con intento `pending`, tras cancelar, `failed` y `completed_test` con transferencia `pending` y `completed_test`, el progreso, los badges y los botones coinciden con el estado; nunca aparece "recibido" ni "dinero real"; completado: "Volver a mi panel" y "Valorar al desarrollador" (solo `contracted`).
+- [ ] (g) **Propuestas:** con 4 propuestas ordena por "Más recientes / Menor precio / Menor plazo" (un solo enlace marcado como actual), "Ver detalle" -> "Viendo" y el panel de detalle; "Seleccionar esta propuesta" abre el diálogo (foco en "Cancelar", Escape cierra y devuelve el foco), el mensaje de error de una propuesta modificada sigue visible ("Cerrar y recargar"); con más de 10 propuestas la paginación funciona.
+- [ ] (h) **Paginación compartida:** en `/dashboard/projects` y `/dashboard/proposals` "Anterior"/"Siguiente" tienen aspecto de botón, se deshabilitan en los extremos y navegan bien.
+- [ ] (i) **Avisos:** al cancelar un pago o retirar una propuesta aparece el aviso visual de 014 (unos 6 s) sobre el footer y el lector de pantalla lo anuncia una vez.
+- [ ] (j) **Responsive:** a 390 px no hay scroll horizontal de página; las tablas desplazan dentro de su región (alcanzable con Tab, con foco visible); tarjetas y acciones se apilan.
+- [ ] (k) **Teclado y lector:** todos los enlaces y botones se alcanzan con Tab con foco visible y objetivos >= 44 px; las tarjetas de estado se anuncian como "{estado}: {n} proyectos"; los badges se leen como texto.
+
+## 8q. Spec 022d — Perfiles, proyecto y formularios
+
+Compara con los artboards de `docs/assets/1-perfiles-y-proyectos/` a **1440 px** y **390 px**. Cuentas: Cliente C, Desarrollador A (con perfil completo y valoraciones) y B (sin perfil), y un visitante.
+
+- [ ] (a) **Perfil público:** `/developers/<id>` muestra avatar de iniciales, nombre, titular · ubicación, valoración (o "Aún sin valoraciones"), disponibilidad, Contacto, Enlaces con icono, Sobre mí (Markdown) y Valoraciones; no aparecen "Invitar a un proyecto", "proyectos contratados", zona horaria ni idiomas. Un desarrollador sin perfil muestra "Este desarrollador aún no completó su perfil".
+- [ ] (b) **Privacidad del correo:** con visibilidad "Solo clientes que me contrataron", un cliente sin contrato ve "Visible cuando contrates…", uno con propuesta aceptada ve el correo, un visitante no lo ve (comportamiento de 019 sin cambios); "Nadie" lo oculta.
+- [ ] (c) **Valoraciones:** el promedio, el conteo y la lista coinciden con los datos; el enlace "Ver valoraciones recibidas" de "Mi cuenta" lleva a `#valoraciones`.
+- [ ] (d) **Mi cuenta:** navegación "Perfil / Valoraciones / Cobros de prueba" funciona (anclas y `/dashboard/payouts`); editar titular, ubicación, disponibilidad, biografía (contador), enlaces (añadir, quitar, URL inválida con error), contacto y guardar muestra el mensaje de éxito y se refleja en el perfil público; "Descartar cambios" restablece; no hay botones de subir foto.
+- [ ] (e) **Detalle de proyecto:** descripción con estilo README (títulos con línea, listas de tareas, cita, tabla con scroll horizontal, código en monoespaciada), aside con presupuesto, plazo, categoría y tecnologías; no hay "Cliente" ni conteo de propuestas ni texto de adjuntos.
+- [ ] (f) **Propuesta:** como Desarrollador A (cobros activos) la sección "Enviar una propuesta" aparece bajo la descripción a ancho completo y "Ir a la propuesta" del aside salta a ella; enviar con datos inválidos muestra errores por campo; enviar bien muestra "Tu propuesta" con editar y retirar (diálogo de confirmación, foco inicial en "Cancelar"); sin cobros activos aparece el aviso con enlace a `/dashboard/payouts`; como visitante, Cliente o sin rol no aparece el formulario. No hay sección "Adjuntos".
+- [ ] (g) **Editor de proyecto:** `/projects/new` y `/projects/<id>/edit` muestran tarjeta con todos los campos (en un publicado: categoría, presupuesto y plazo bloqueados), editor con "Escribir/Vista previa" y barra de formato, guía rápida lateral sin mención de documentos en propuestas; guardar borrador, guardar cambios y publicar funcionan igual; teclado: la barra de formato es alcanzable y los botones tienen nombre.
+- [ ] (h) **Valoración:** `/projects/<id>/rate` de un proyecto contratado: elegir estrellas con ratón y con teclado, texto "N de 5 · palabra", comentario con contador (máx. 600), "Antes de enviar", "Publicar valoración"; editar dentro de 14 días; tras enviar se ve en el perfil del desarrollador.
+- [ ] (i) **Tipografía:** todo en Plus Jakarta Sans; el código y los editores usan monoespaciada (Geist Mono); no se pide ninguna fuente externa.
+- [ ] (j) **Responsive:** a 390 px sin scroll horizontal en las 6 pantallas; columnas apiladas; el aside de "Mi cuenta" y la guía rápida quedan arriba/abajo sin cortar texto.
+- [ ] (k) **Teclado y foco:** Tab recorre cada pantalla con foco visible y orden lógico; controles >= 44 px; mensajes de error con `role="alert"`; lector de pantalla anuncia estrellas, pestañas del editor y diálogos.
+
+## 8r. Spec 023 — Foto de perfil de Google
+
+Requiere una cuenta de **Google real** con foto (AC12), una cuenta correo/contraseña sin foto, una cuenta Cliente y una ventana de incógnito.
+
+- [ ] (a) **Previo:** el humano corrió `npm run db:migrate` (columna `users.image_url`) antes de probar.
+- [ ] (b) **Con foto de Google:** tras registrarse como Desarrollador con la cuenta de Google, `users.image_url` no es `NULL` (si lo es, revisar si la URL real de Clerk trae query string: la validación la rechaza, 023 D5). `/developers/<id>` y "Mi cuenta" muestran la foto.
+- [ ] (c) **Sin foto:** con la cuenta correo/contraseña (sin foto) se ven las iniciales en el perfil, "Mi cuenta", propuestas, pago y "En contratación".
+- [ ] (d) **Visitante:** en una ventana de incógnito, `/developers/<id>` muestra la foto sin sesión, también si el desarrollador aún no completó su perfil.
+- [ ] (e) **Layout:** a 1440 px y a 390 px los avatares tienen el mismo tamaño que antes y no hay saltos de layout al cargar la foto.
+- [ ] (f) **Imagen rota:** con la imagen bloqueada (DevTools: bloquear `/_next/image`) o rota se ven las iniciales.
+- [ ] (g) **Cambios en Clerk:** cambiar o quitar la foto en Clerk se refleja al abrir "Mi cuenta" y, con el webhook desplegado, al llegar `user.updated`; en local sin webhook, solo al abrir "Mi cuenta".
+- [ ] (h) **Cliente:** una cuenta Cliente no guarda ni muestra foto (`image_url` queda `NULL`) y las valoraciones del perfil siguen con iniciales.
+- [ ] (i) **Consola:** no hay avisos de CSP por `img.clerk.com` (la CSP sigue en Report-Only).
+- [ ] (j) **Dónde se ve:** la foto del desarrollador aparece en la fila y el detalle de propuestas, la tarjeta "Desarrollador seleccionado" de la página de pago, la tabla "En contratación" del panel del cliente y la cabecera del formulario de valoración.
+
 ## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
@@ -549,7 +632,7 @@ Estas notas no bloquean, pero conviene tenerlas a la vista:
 - Rate limiting de las acciones sensibles (incluido el refresco de pago y de cuenta de cobros): resuelto en la spec 015 (límite por usuario en Neon; pruebas en la sección 8j).
 - Webhook de Stripe (spec 015, D3): no se limita por IP; tiene un tope de 1 MiB del cuerpo (responde `413`) y la firma sigue siendo la única autenticación. Un techo por IP, si hiciera falta, se resolvería con Upstash en la spec 017.
 - Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno.
-- El header global ya existe (spec 009b, sección 7b). La metadata global, el `lang` y el favicon quedaron resueltos en la spec 022a (sección 8m); el landing de `/` sigue pendiente de la spec 022b.
+- El header global ya existe (spec 009b, sección 7b). La metadata global, el `lang` y el favicon quedaron resueltos en la spec 022a (sección 8m); landing resuelto en 022b.
 - La paginación del catálogo solo tiene "Anterior / Siguiente", sin números de página.
 - Un proyecto publicado con una categoría que ya no esté en la lista no podría editar su título. Es hipotético hasta que cambie la lista de categorías.
 - `npm audit` (spec 016, T0): las vulnerabilidades de producción críticas quedaron corregidas. `npm audit` pasó de 17 (1 crítica, 11 altas, 5 moderadas) a 15 (0 críticas, 10 altas, 5 moderadas); con `--omit=dev` pasó de 10 (incluía `next` crítica) a 9 y `next` ya no aparece. `next` subió de 16.3.8 a 16.4.2 (corrige RCE del optimizador de imágenes SVG, RCE de `use cache` y DoS de Server Actions), `eslint-config-next` a 16.4.2 y `vite` de 8.3.2 a 8.3.5 (sin avisos). Nunca se usa `npm audit fix --force`. Quedan registradas sin aplicar porque npm solo propone majors o downgrades (`shadcn@1.0.0`, `drizzle-kit@0.18.1`, `eslint-config-next@14.2.35`):
