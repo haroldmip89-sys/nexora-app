@@ -139,4 +139,28 @@ describe("SiteNav", () => {
       expect(toggle()).toHaveFocus();
     });
   });
+
+  describe("redesign (022a)", () => {
+    it.each([true, false])("shows the Modo de prueba chip with signedIn=%s", (signedIn) => {
+      render(<SiteNav links={[PROJECTS]} signedIn={signedIn} />);
+      expect(screen.getByText("Modo de prueba")).toBeInTheDocument();
+    });
+
+    it("keeps the logo accessible name as Nexora with a decorative symbol", () => {
+      render(<SiteNav links={[PROJECTS]} signedIn />);
+      const logo = screen.getByRole("link", { name: "Nexora" });
+      expect(logo.querySelector("img")).toHaveAttribute("alt", "");
+    });
+
+    it("marks a single aria-current on a nested route", () => {
+      pathnameMock.value = "/dashboard/proposals";
+      render(
+        <SiteNav
+          links={[{ href: "/dashboard", label: "Mi panel" }, PROJECTS, { href: "/dashboard/account", label: "Mi cuenta" }]}
+          signedIn
+        />,
+      );
+      expect(currentLinks()).toEqual(["Mi panel"]);
+    });
+  });
 });

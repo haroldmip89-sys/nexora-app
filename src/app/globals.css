@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -46,27 +46,58 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-primary-hover: var(--primary-hover);
+  --color-divider: var(--divider);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-soft: var(--surface-soft);
+  --color-text-body: var(--text-body);
+  --color-chip: var(--chip);
+  --color-chip-border: var(--chip-border);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-deep-border: var(--brand-deep-border);
+  --color-on-dark: var(--on-dark);
+  --color-footer-border: var(--footer-border);
+  --color-star: var(--star);
+  --color-star-on-dark: var(--star-on-dark);
+  --color-success-bg: var(--success-bg);
+  --color-success-fg: var(--success-fg);
+  --color-success-border: var(--success-border);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-icon: var(--warning-icon);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-border: var(--danger-border);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-fg: var(--neutral-fg);
+  --color-neutral-border: var(--neutral-border);
+  --radius-card: 1rem;
+  --shadow-hero: 0 24px 48px -24px rgb(24 61 48 / 0.35);
+  --shadow-float: 0 16px 32px -16px rgb(24 61 48 / 0.6);
+  --container-page: 75rem;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #F5F6F2;
+  --foreground: #1F2420;
+  --card: #FFFFFF;
+  --card-foreground: #1F2420;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2420;
+  --primary: #183D30;
+  --primary-foreground: #FFFFFF;
+  --secondary: #DCE6DE;
+  --secondary-foreground: #183D30;
+  --muted: #F1F2EF;
+  --muted-foreground: #535E56;
+  --accent: #DCE6DE;
+  --accent-foreground: #183D30;
+  --destructive: #B42318;
+  --border: #E3E8E3;
+  --input: #C9D3CB;
+  --ring: #183D30;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -81,6 +112,33 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --primary-hover: #0F2A20;
+  --divider: #EEF1EC;
+  --surface-subtle: #F7F8F5;
+  --surface-soft: #F2F6F1;
+  --text-body: #3A423C;
+  --chip: #EDF2EC;
+  --chip-border: #D5E0D7;
+  --brand-deep: #21483A;
+  --brand-deep-border: #2E5A4A;
+  --on-dark: #C7D6CB;
+  --footer-border: #353D37;
+  --star: #B7791F;
+  --star-on-dark: #E9B54C;
+  --success-bg: #E3EFE6;
+  --success-fg: #1E5236;
+  --success-border: #BFD8C6;
+  --warning-bg: #FBF1DC;
+  --warning-fg: #7A4D0B;
+  --warning-border: #EBD3A0;
+  --warning-strong: #5C3A08;
+  --warning-icon: #8A5A12;
+  --danger-bg: #FBE7E4;
+  --danger-fg: #8F2A1C;
+  --danger-border: #EFC2BA;
+  --neutral-bg: #F1F2EF;
+  --neutral-fg: #4A534C;
+  --neutral-border: #DADFD9;
 }
 
 .dark {
@@ -123,8 +181,20 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
   }
   html {
     @apply font-sans;
   }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+@utility surface {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--radius-card);
 }

@@ -212,3 +212,7 @@ export function getActiveHref(pathname: string, hrefs: string[]): string | null;
 - "Saltar al contenido" (`<main id>` y enlace en `SiteNav`, pendiente de 009b) y revisión de contraste: spec de UI posterior, o 006b con el layout.
 - Estados de carga, error y vacío del resto de pantallas y errores de red/servicios externos con reintento: ya existen `*-loading.tsx`/`*-error.tsx` por módulo; una revisión sistemática queda para 016/017.
 - Toasts visuales de éxito si el producto lo pide.
+
+## Corrección posterior (2026-10-24, modo BUILD, decidida por el humano)
+
+P2 ajustada: el anunciador global ahora también muestra una copia **visual** del mensaje durante 6 s (`aria-hidden`, sin duplicar el anuncio a lectores de pantalla). Motivo: tras cancelar un pago el botón y su mensaje se desmontan con el `router.refresh()`, y una persona que ve la pantalla no veía el resultado ("El pago se completó antes de poder cancelarlo"). Afecta a todos los usuarios del anunciador.

@@ -1,7 +1,7 @@
 # Nexora — Pruebas manuales pendientes
 
 **Estado:** vivo (se actualiza al cerrar cada spec)
-**Cubre:** specs 003 a 011a, 011c, 012, 013, 017, 018 y 019 (las specs 001 y 002 son documentales)
+**Cubre:** specs 003 a 011a, 011c, 012, 013, 017, 018, 019 y 022a (las specs 001 y 002 son documentales)
 
 Estas pruebas no se pueden automatizar con Vitest: dependen de un navegador, de Clerk, de una base de datos Neon real o de la revisión visual. Los reviewers las dejaron marcadas como "pendiente de verificación manual".
 
@@ -459,6 +459,8 @@ Todo es de prueba: el bloque de proyectos ganados lleva "Modo de prueba · No se
 - [ ] (d) En `/dashboard/account` (desarrollador) solo "Mi cuenta" está marcado como página actual (en `/dashboard` y `/dashboard/proposals`, "Mi panel").
 - [ ] (e) A 390 px los diálogos no se desbordan.
 
+- [ ] **Aviso visual (corrección posterior):** tras cancelar un pago, retirar una propuesta, actualizar el estado, reintentar una transferencia, etc., aparece un aviso breve abajo en pantalla (unos 6 s) con el resultado, aunque el botón haya desaparecido. Con lector de pantalla se anuncia una sola vez (el aviso visual está oculto para él).
+
 ## 8j. Spec 015 — Seguridad (rate limiting y CSP)
 
 ### Preparación
@@ -517,6 +519,21 @@ La demo corre en `https://<proyecto>.vercel.app` con Clerk en modo Development y
 - [ ] (k) Un `POST` sin firma a `https://<dominio>/api/webhooks/stripe` (por ejemplo `curl -i -X POST https://<dominio>/api/webhooks/stripe -d '{}'`) responde 400.
 - [ ] (l) Plan de rollback ([8. Rollback](DEPLOYMENT.md#8-rollback)) revisado: se puede volver al despliegue anterior en Vercel, pero las migraciones de Drizzle solo van hacia delante. Advertencia: volver el código atrás no revierte la base de datos; antes de migrar, confirma que el código anterior tolera el esquema nuevo (o ten un respaldo/rama de Neon, ver [7](DEPLOYMENT.md#7-observabilidad-y-recuperación)).
 
+## 8m. Spec 022a — Tema, header y footer globales
+
+Compara cada punto con `docs/assets/3-paneles/Main.dc.html` (header) a **1440 px** y a **390 px** (modo dispositivo de DevTools). Cuentas: visitante (incógnito), Cliente y Desarrollador A.
+
+- [ ] (a) **Fuente:** en `/`, `/projects`, `/dashboard`, `/sign-in` y un 404 el texto se ve en Plus Jakarta Sans (DevTools -> Rendered Fonts); en la pestaña Network no hay peticiones a `fonts.googleapis.com`.
+- [ ] (b) **Idioma y título:** `document.documentElement.lang` es `es`; el título de la pestaña en `/` es el de Nexora (no "Create Next App"); las demás páginas conservan su título.
+- [ ] (c) **Favicon:** la pestaña muestra el símbolo verde/negro de Nexora (recarga forzada, Ctrl+F5); no aparece el icono de Next.
+- [ ] (d) **Header (1440 px):** fondo blanco, símbolo + "nexora", chip "Modo de prueba" siempre visible, y para Cliente "Mi panel · Proyectos", para Desarrollador "Mi panel · Proyectos · Mi cuenta", para visitante "Proyectos · Iniciar sesión" + "Registrarse"; la página actual aparece con píldora verde suave y solo una.
+- [ ] (e) **Header (390 px):** sin scroll horizontal; se ven símbolo, "nexora", chip, avatar (o "Registrarse") y botón de menú; el menú despliega todos los enlaces, se cierra con un enlace, con `Escape` y con un segundo clic; Escape devuelve el foco al botón.
+- [ ] (f) **Teclado y foco:** Tab recorre logo, enlaces, avatar y botón de menú con anillo de foco visible y orden lógico; ningún control mide menos de 44 px (inspección).
+- [ ] (g) **Clerk:** el menú del avatar abre y "Cerrar sesión" funciona; no hay errores de hidratación en consola al cargar con sesión iniciada ni al recargar.
+- [ ] (h) **Footer:** aparece en todas las páginas (incluida `/sign-in` y el 404) pegado al final cuando el contenido es corto; muestra marca, frase, "Proyectos", "© año Nexora. Proyecto de demostración." y "Pagos procesados por Stripe en modo de prueba."; se ve bien a 390 px; el enlace "Proyectos" tiene foco visible.
+- [ ] (i) **Sin regresiones funcionales:** los avisos de `LiveAnnouncer` (014) siguen apareciendo encima del footer; ningún dashboard, formulario ni diálogo pierde función (solo cambian color y tipografía hasta las fases B-D).
+- [ ] (j) **Consola:** sin violaciones nuevas de CSP (Report-Only) ni advertencias de `next/image`.
+
 ## 9. Revisión visual transversal
 
 - [ ] Todas las pantallas nuevas respetan la paleta (verde bosque `#183D30`, off-white `#F5F6F2`, verde suave `#DCE6DE`) y se ven coherentes con los artboards.
@@ -532,7 +549,7 @@ Estas notas no bloquean, pero conviene tenerlas a la vista:
 - Rate limiting de las acciones sensibles (incluido el refresco de pago y de cuenta de cobros): resuelto en la spec 015 (límite por usuario en Neon; pruebas en la sección 8j).
 - Webhook de Stripe (spec 015, D3): no se limita por IP; tiene un tope de 1 MiB del cuerpo (responde `413`) y la firma sigue siendo la única autenticación. Un techo por IP, si hiciera falta, se resolvería con Upstash en la spec 017.
 - Spec 011a: el webhook `account.updated` (Connect) queda diferido; sin él, un cambio hecho por Stripe tras volver del onboarding solo se ve con "Actualizar estado" o al volver a pasar por el retorno.
-- El header global ya existe (spec 009b, sección 7b). El landing de `/` y la metadata global (título, `lang`, 404 con marca) siguen pendientes; la spec 006 los recomendó en una spec propia (`006b-landing-and-site-header`).
+- El header global ya existe (spec 009b, sección 7b). La metadata global, el `lang` y el favicon quedaron resueltos en la spec 022a (sección 8m); el landing de `/` sigue pendiente de la spec 022b.
 - La paginación del catálogo solo tiene "Anterior / Siguiente", sin números de página.
 - Un proyecto publicado con una categoría que ya no esté en la lista no podría editar su título. Es hipotético hasta que cambie la lista de categorías.
 - `npm audit` (spec 016, T0): las vulnerabilidades de producción críticas quedaron corregidas. `npm audit` pasó de 17 (1 crítica, 11 altas, 5 moderadas) a 15 (0 críticas, 10 altas, 5 moderadas); con `--omit=dev` pasó de 10 (incluía `next` crítica) a 9 y `next` ya no aparece. `next` subió de 16.3.8 a 16.4.2 (corrige RCE del optimizador de imágenes SVG, RCE de `use cache` y DoS de Server Actions), `eslint-config-next` a 16.4.2 y `vite` de 8.3.2 a 8.3.5 (sin avisos). Nunca se usa `npm audit fix --force`. Quedan registradas sin aplicar porque npm solo propone majors o downgrades (`shadcn@1.0.0`, `drizzle-kit@0.18.1`, `eslint-config-next@14.2.35`):

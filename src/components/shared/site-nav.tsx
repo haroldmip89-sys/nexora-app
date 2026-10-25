@@ -2,6 +2,7 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 import type { KeyboardEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -10,8 +11,8 @@ import { getActiveHref, isActivePath } from "@/lib/is-active-path";
 import { cn } from "@/lib/utils";
 import type { NavLinkItem } from "@/modules/auth/services/dashboard-link";
 
-const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-[#183D30]/40";
-const NAV_LINK = "inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium";
+const FOCUS = "outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
+const NAV_LINK = "inline-flex min-h-11 items-center rounded-lg px-3 text-sm";
 const LIST_ID = "site-nav-list";
 
 type SiteNavProps = {
@@ -45,24 +46,25 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
   }
 
   return (
-    <header className="relative border-b border-[#E3E8E3] bg-[#F5F6F2]" onKeyDown={handleKeyDown}>
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1 sm:px-6">
+    <header className="relative border-b border-border bg-card" onKeyDown={handleKeyDown}>
+      <div className="mx-auto flex w-full max-w-page items-center gap-1 px-3 py-2 sm:gap-2 sm:px-6">
         <Link
           href="/"
           aria-current={isActivePath(pathname, "/") ? "page" : undefined}
           className={cn(
-            "inline-flex min-h-11 items-center rounded-lg px-1 text-lg font-semibold tracking-tight text-[#183D30]",
+            "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-1 text-foreground sm:gap-2",
             FOCUS,
           )}
         >
-          Nexora
+          <Image src="/logo.png" alt="" width={30} height={30} className="size-[30px] shrink-0" />
+          <span className="text-xl font-extrabold tracking-[-0.03em] lowercase max-[359px]:sr-only sm:text-[22px]">Nexora</span>
         </Link>
 
         <nav
           aria-label="Principal"
           className={cn(
-            "absolute inset-x-0 top-full z-10 bg-[#F5F6F2] px-4 md:static md:flex-1 md:border-0 md:bg-transparent md:px-0",
-            open && "border-b border-[#E3E8E3]",
+            "absolute inset-x-0 top-full z-10 bg-card px-4 md:static md:flex-1 md:border-0 md:bg-transparent md:px-0",
+            open && "border-b border-border",
           )}
         >
           <ul
@@ -80,7 +82,7 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
                     className={cn(
                       NAV_LINK,
                       FOCUS,
-                      active ? "text-[#183D30] underline" : "text-[#535E56] hover:text-[#183D30]",
+                      active ? "bg-secondary font-bold text-primary" : "font-semibold text-muted-foreground hover:text-primary",
                     )}
                   >
                     {item.label}
@@ -92,6 +94,9 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <span className="inline-flex items-center whitespace-nowrap rounded-full border border-warning-border bg-warning-bg px-2 py-1 text-[11px] font-bold text-warning-fg sm:px-2.5 sm:text-xs">
+            Modo de prueba
+          </span>
           {signedIn ? (
             hydrated ? (
               <UserButton appearance={{ elements: { userButtonTrigger: "min-h-11 min-w-11 justify-center" } }} />
@@ -103,8 +108,8 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
               href="/sign-up"
               aria-current={isActivePath(pathname, "/sign-up") ? "page" : undefined}
               className={cn(
-                buttonVariants({ size: "lg" }),
-                "h-11 rounded-[10px] bg-[#183D30] px-3 text-white hover:bg-[#183D30]/90 sm:px-4",
+                buttonVariants({ size: "touch" }),
+                "px-3 sm:px-4",
                 FOCUS,
               )}
             >
@@ -120,7 +125,7 @@ export function SiteNav({ links, signedIn }: SiteNavProps) {
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
             onClick={() => setOpenedAt(open ? null : pathname)}
             className={cn(
-              "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#183D30] md:hidden",
+              "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary md:hidden",
               FOCUS,
             )}
           >

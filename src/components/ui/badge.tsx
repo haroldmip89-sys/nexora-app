@@ -1,3 +1,4 @@
+// Nexora: custom tone variants (success, warning, danger, neutral) in this file; A CLI regeneration would overwrite them.
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -18,6 +19,10 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        success: "border-success-border bg-success-bg text-success-fg",
+        warning: "border-warning-border bg-warning-bg text-warning-fg",
+        danger: "border-danger-border bg-danger-bg text-danger-fg",
+        neutral: "border-neutral-border bg-neutral-bg text-neutral-fg",
       },
     },
     defaultVariants: {
